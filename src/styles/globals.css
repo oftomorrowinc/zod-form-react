@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Custom Properties for theming */
+:root {
+  /* Light theme (default fallbacks) */
+  --zf-primary-color: #6366f1;
+  --zf-secondary-color: #8b5cf6;
+  --zf-background: #ffffff;
+  --zf-surface: #f8fafc;
+  --zf-border: #e2e8f0;
+  --zf-text: #1e293b;
+  --zf-text-muted: #64748b;
+  --zf-error: #ef4444;
+  --zf-success: #10b981;
+}
+
+/* Dark theme */
+.dark {
+  --zf-primary-color: #6366f1;
+  --zf-secondary-color: #8b5cf6;
+  --zf-background: #0f172a;
+  --zf-surface: #1e293b;
+  --zf-border: #334155;
+  --zf-text: #f8fafc;
+  --zf-text-muted: #94a3b8;
+  --zf-error: #ef4444;
+  --zf-success: #10b981;
+}
+
+/* Auto theme detection */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --zf-primary-color: #6366f1;
+    --zf-secondary-color: #8b5cf6;
+    --zf-background: #0f172a;
+    --zf-surface: #1e293b;
+    --zf-border: #334155;
+    --zf-text: #f8fafc;
+    --zf-text-muted: #94a3b8;
+    --zf-error: #ef4444;
+    --zf-success: #10b981;
+  }
+}
+
+/* Component-specific styles */
+.zf-form {
+  @apply text-zf-text;
+}
+
+/* Custom scrollbar for select dropdowns */
+.zf-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--zf-border) transparent;
+}
+
+.zf-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.zf-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.zf-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--zf-border);
+  border-radius: 3px;
+}
+
+.zf-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--zf-text-muted);
+}
+
+/* Star rating hover effects */
+.zf-star-hover:hover {
+  transform: scale(1.1);
+}
+
+/* File upload drag states */
+.zf-file-drag-over {
+  @apply border-zf-primary bg-zf-primary/10;
+}
+
+/* Array field drag and drop */
+.zf-array-item.dragging {
+  @apply opacity-50;
+}
+
+.zf-array-item.drag-over {
+  @apply border-zf-primary;
+}
+
+/* Focus styles */
+.zf-focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-zf-primary focus:ring-offset-2;
+}
+
+/* Animation utilities */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { 
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes starPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.2s ease-out;
+}
+
+.animate-star-pulse {
+  animation: starPulse 0.3s ease-in-out;
+}
+
+/* Custom form styles */
+.zf-input-group {
+  @apply relative;
+}
+
+.zf-input-group .zf-input {
+  @apply pr-10;
+}
+
+.zf-input-group .zf-input-icon {
+  @apply absolute right-3 top-1/2 transform -translate-y-1/2 text-zf-text-muted;
+}
+
+/* Responsive helpers */
+@media (max-width: 640px) {
+  .zf-form {
+    @apply space-y-4;
+  }
+  
+  .zf-form-grid {
+    @apply grid-cols-1;
+  }
+  
+  .zf-button-group {
+    @apply flex-col space-y-2 space-x-0;
+  }
+}
+
+/* Print styles */
+@media print {
+  .zf-form {
+    @apply text-black bg-white;
+  }
+  
+  .zf-form input,
+  .zf-form select,
+  .zf-form textarea {
+    @apply border-gray-300 bg-white text-black;
+  }
+  
+  .zf-form button {
+    @apply hidden;
+  }
+}
