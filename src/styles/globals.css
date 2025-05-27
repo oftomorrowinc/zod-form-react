@@ -51,10 +51,15 @@
 
 /* Custom scrollbar for select dropdowns */
 .zf-scrollbar {
+  /* Fallback for older browsers - basic styling */
+  overflow: auto;
+  
+  /* Modern browsers (Firefox) */
   scrollbar-width: thin;
   scrollbar-color: var(--zf-border) transparent;
 }
 
+/* Webkit scrollbars (Chrome, Safari, Edge) */
 .zf-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
@@ -79,7 +84,8 @@
 
 /* File upload drag states */
 .zf-file-drag-over {
-  @apply border-zf-primary bg-zf-primary/10;
+  @apply border-zf-primary;
+  background-color: rgba(99, 102, 241, 0.1);
 }
 
 /* Array field drag and drop */

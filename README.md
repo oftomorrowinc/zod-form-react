@@ -1,29 +1,66 @@
 # Zod Form React
 
-A powerful React component library for generating beautiful, type-safe forms from Zod schemas. This is the React/TypeScript conversion of our original Node.js/Express Zod Form Node library, now optimized for modern React applications and Next.js.
+A Firebase-first React form library that generates beautiful, type-safe forms from Zod schemas with built-in Firestore integration, Firebase Auth support, and Firebase Storage handling. Optimized for Next.js applications hosted on Firebase.
 
 ## 🚀 Features
 
-### ✅ **Completed Features**
-- **Schema-Driven**: Automatically generate forms from Zod schemas with full type inference
-- **React Hook Form Integration**: Built on React Hook Form for optimal performance and developer experience
-- **TypeScript First**: Complete TypeScript support with proper type inference from your Zod schemas
-- **Dark Theme by Default**: Beautiful dark theme that matches the original library's aesthetic
-- **Tailwind CSS**: Modern styling with Tailwind CSS and CSS custom properties for easy theming
-- **Comprehensive Field Types**: Support for all standard form fields plus enhanced components
-- **Real-time Validation**: Instant validation feedback with customizable validation modes
-- **Responsive Design**: Mobile-first responsive design that works on all screen sizes
+### ✅ **Core Features**
 
-### 🚧 **In Development**
-- **Enhanced Components**: Star ratings, file uploads with preview, and document upload integration
-- **Dynamic Arrays**: Add/remove functionality for array fields with drag-and-drop reordering
-- **Nested Objects**: Collapsible object fields with proper validation nesting
+#### 🔥 Firebase Integration
+- **Firebase-First Design**: Built specifically for Firebase-powered applications
+- **Firestore Integration**: Automatic document saving, real-time sync, and auto-save functionality
+- **Firebase Auth**: User context awareness and automatic metadata tracking
+- **Firebase Storage**: Direct file upload to Storage with progress tracking
+- **Firebase Emulator Support**: Full support for local development with emulators
+- **Environment Variable Configuration**: Secure configuration through environment variables
+
+#### 📝 Form Generation & Validation
+- **Schema-Driven**: Automatically generate forms from Zod schemas with full type inference
+- **React Hook Form Integration**: Built on React Hook Form for optimal performance
+- **Real-time Validation**: Instant validation feedback with Zod schemas
+- **TypeScript First**: Complete TypeScript support with proper type inference
+
+#### 🎨 UI & Components
+- **Dark Theme by Default**: Beautiful dark theme optimized for developer tools
+- **Tailwind CSS**: Modern styling with CSS custom properties for easy theming
+- **Responsive Design**: Mobile-first responsive design
+- **Enhanced Components**: Star ratings, file uploads with preview, rich text editing
+- **Dynamic Arrays**: Add/remove functionality for array fields
+- **Nested Objects**: Support for complex nested data structures
 - **Conditional Logic**: Show/hide fields based on form state and user selections
+
+#### 🚀 Firebase-Specific Field Types
+- **ServerTimestamp**: Automatic server timestamp fields
+- **GeoPoint**: Location fields with geolocation support
+- **DocumentReference**: Select and reference other Firestore documents
+- **FirebaseStorage**: File upload fields with progress tracking
 
 ## 📦 Installation
 
 ```bash
-npm install zod-form-react zod react-hook-form @hookform/resolvers
+npm install zod-form-react
+
+# Peer dependencies (if not already installed)
+npm install react react-dom zod react-hook-form @hookform/resolvers
+```
+
+**Note**: Firebase is included as a dependency, so you don't need to install it separately.
+
+## 🚀 Quick Start with Firebase
+
+```bash
+# 1. Install the library
+npm install zod-form-react
+
+# 2. Set up your .env.local file
+cp node_modules/zod-form-react/.env.example .env.local
+# Edit .env.local with your Firebase config
+
+# 3. Start Firebase emulators (optional for local dev)
+npm run emulators
+
+# 4. Start your Next.js app
+npm run dev
 ```
 
 ## 🛠 Usage
@@ -151,6 +188,293 @@ export default function ContactPage() {
 }
 ```
 
+## 🔥 Firebase Integration
+
+### Setting Up Firebase
+
+1. **Initialize Firebase in your Next.js app**:
+
+```tsx
+// lib/firebase.ts
+import { initializeFirebase } from 'zod-form-react/firebase';
+
+export const { firestore, auth, storage } = initializeFirebase({
+  // Option 1: Pass config directly
+  apiKey: "your-api-key",
+  authDomain: "your-auth-domain",
+  projectId: "your-project-id",
+  storageBucket: "your-storage-bucket",
+  messagingSenderId: "your-sender-id",
+  appId: "your-app-id"
+  
+  // Option 2: Use environment variables (recommended)
+  // Config will be read from NEXT_PUBLIC_FIREBASE_* env vars
+});
+```
+
+2. **Environment Variables** (.env.local):
+
+```bash
+NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-auth-domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-storage-bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
+
+# Optional: Enable emulators in development
+NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true
+```
+
+### FirebaseZodForm - Firestore Integration
+
+```tsx
+import { z } from 'zod';
+import { FirebaseZodForm } from 'zod-form-react/firebase';
+import { firestore, auth, storage } from '@/lib/firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
+
+const profileSchema = z.object({
+  displayName: z.string().min(2),
+  email: z.string().email(),
+  bio: z.string().optional(),
+  photoURL: z.string().url().optional(),
+  location: z.object({
+    latitude: z.number(),
+    longitude: z.number(),
+  }),
+  preferences: z.object({
+    newsletter: z.boolean(),
+    notifications: z.boolean(),
+  }),
+  updatedAt: z.date(), // Will use serverTimestamp()
+});
+
+function ProfileForm() {
+  const [user] = useAuthState(auth);
+  
+  return (
+    <FirebaseZodForm
+      schema={profileSchema}
+      firestore={firestore}
+      storage={storage}
+      collection="users"
+      documentId={user?.uid}
+      user={user}
+      autoSave={true}
+      autoSaveDelay={2000}
+      includeMetadata={true}
+      onSuccess={(data) => {
+        console.log('Profile saved:', data);
+      }}
+      theme="dark"
+      submitButtonText="Save Profile"
+    />
+  );
+}
+```
+
+#### 📝 Document ID Behavior
+
+- **New Documents**: When no `documentId` is provided, Firestore automatically generates a unique document ID
+- **Existing Documents**: Provide a `documentId` to update an existing document
+- **User Profiles**: Common pattern is to use the Firebase Auth UID as the document ID (as shown above)
+- **Custom IDs**: You can provide any string as a `documentId` if you need specific ID formats
+
+```tsx
+// Example: Auto-generated ID (new document)
+<FirebaseZodForm
+  schema={schema}
+  firestore={firestore}
+  collection="posts"
+  // No documentId = Firestore generates one
+/>
+
+// Example: Specific ID (update existing)
+<FirebaseZodForm
+  schema={schema}
+  firestore={firestore}
+  collection="posts"
+  documentId="post-123"
+/>
+```
+
+### Firebase-Specific Field Types
+
+```tsx
+import { z } from 'zod';
+import { FirebaseZodForm } from 'zod-form-react/firebase';
+import { 
+  DocumentReferenceField, 
+  ServerTimestampField, 
+  GeoPointField,
+  FirebaseStorageField 
+} from 'zod-form-react/firebase';
+
+const eventSchema = z.object({
+  title: z.string().min(5),
+  description: z.string(),
+  
+  // Document reference to another collection
+  organizerId: z.string(),
+  
+  // Server timestamp
+  createdAt: z.date(),
+  scheduledAt: z.date(),
+  
+  // GeoPoint for location
+  location: z.object({
+    latitude: z.number(),
+    longitude: z.number(),
+  }),
+  
+  // File upload to Firebase Storage
+  coverImage: z.string().url().optional(),
+  attachments: z.array(z.string().url()).optional(),
+});
+
+function EventForm() {
+  return (
+    <FirebaseZodForm
+      schema={eventSchema}
+      firestore={firestore}
+      storage={storage}
+      collection="events"
+      fieldOptions={{
+        organizerId: {
+          component: DocumentReferenceField,
+          props: {
+            firestore,
+            collection: 'users',
+            displayField: 'displayName',
+          },
+        },
+        createdAt: {
+          component: ServerTimestampField,
+          props: {
+            showCurrentTime: true,
+          },
+        },
+        location: {
+          component: GeoPointField,
+          props: {
+            enableGeolocation: true,
+          },
+        },
+        coverImage: {
+          component: FirebaseStorageField,
+          props: {
+            storage,
+            path: 'event-covers',
+            accept: 'image/*',
+            showPreview: true,
+          },
+        },
+      }}
+    />
+  );
+}
+```
+
+### Real-time Form Sync with Firestore
+
+```tsx
+import { useFirestoreForm } from 'zod-form-react/firebase';
+
+function RealtimeForm() {
+  const {
+    loading,
+    saving,
+    error,
+    documentId,
+    saveToFirestore,
+    register,
+    handleSubmit,
+    watch,
+    formState,
+  } = useFirestoreForm({
+    schema: mySchema,
+    firestore,
+    collection: 'drafts',
+    documentId: 'draft-123', // Optional: specific document
+    autoSave: true,
+    autoSaveDelay: 1000,
+    user: currentUser,
+  });
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <form onSubmit={handleSubmit(saveToFirestore)}>
+      {/* Your form fields */}
+      <input {...register('title')} />
+      
+      {saving && <p>Saving...</p>}
+      {documentId && <p>Document ID: {documentId}</p>}
+    </form>
+  );
+}
+```
+
+### Firebase Auth Integration
+
+```tsx
+import { FirebaseZodForm } from 'zod-form-react/firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '@/lib/firebase';
+
+function AuthenticatedForm() {
+  const [user, loading, error] = useAuthState(auth);
+  
+  if (loading) return <div>Loading auth...</div>;
+  if (error) return <div>Auth error: {error.message}</div>;
+  if (!user) return <div>Please sign in to continue</div>;
+  
+  return (
+    <FirebaseZodForm
+      schema={schema}
+      firestore={firestore}
+      collection="user-data"
+      documentId={user.uid}
+      user={user}
+      includeMetadata={true} // Adds createdBy, updatedBy, timestamps
+      transformBeforeSave={(data) => ({
+        ...data,
+        userEmail: user.email,
+        userId: user.uid,
+      })}
+    />
+  );
+}
+```
+
+### Firebase Emulator Support
+
+```bash
+# Start Firebase emulators
+npm run emulators
+
+# Start with data import
+npm run emulators:import
+
+# Export emulator data
+npm run emulators:export
+```
+
+Configure for emulators in development:
+
+```tsx
+// Automatically connects to emulators when NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true
+const { firestore, auth, storage } = initializeFirebase(null, {
+  useEmulators: true,
+  emulatorHost: 'localhost',
+  firestorePort: 8080,
+  authPort: 9099,
+  storagePort: 9199,
+});
+```
+
 ## 🎨 Theming
 
 The library includes a comprehensive theming system with CSS custom properties:
@@ -186,6 +510,15 @@ The library automatically maps Zod schema types to appropriate form fields:
 | `z.enum([...])` | Select dropdown | Or radio buttons for ≤4 options |
 | `z.array(...)` | Dynamic array | Add/remove functionality |
 | `z.object({...})` | Nested fieldset | Collapsible sections |
+
+### Firebase-Specific Field Types
+
+| Field Type | Use Case | Features |
+|------------|----------|----------|
+| `DocumentReferenceField` | Reference other Firestore documents | Document picker with search |
+| `ServerTimestampField` | Automatic timestamps | Shows current time, saves as serverTimestamp() |
+| `GeoPointField` | Location data | Latitude/longitude inputs with geolocation |
+| `FirebaseStorageField` | File uploads | Direct upload to Firebase Storage with progress |
 
 ## 🔧 Configuration Options
 
@@ -287,44 +620,63 @@ npm run lint
 
 ## 🗺 Roadmap
 
-### Immediate Next Steps
-1. **Fix TypeScript Build Issues**: Resolve current compilation errors
-2. **Enhanced Component Integration**: Complete star rating, file upload, and array field implementations
-3. **Comprehensive Testing**: Add Jest and React Testing Library test suite
-4. **Storybook Documentation**: Interactive component documentation
+### ✅ Recently Completed
+- **Firebase Integration**: Full Firestore, Auth, and Storage support
+- **Enhanced Components**: Star ratings, file uploads with preview
+- **Dynamic Arrays**: Full array field support with add/remove
+- **Nested Objects**: Complex nested data structures
+- **Conditional Logic**: Dynamic field visibility
+- **Firebase-Specific Fields**: ServerTimestamp, GeoPoint, DocumentReference
+- **Environment Configuration**: Secure config through env variables
 
-### Future Enhancements
-1. **Additional Field Types**: Color picker, rich text editor, date range picker
-2. **Advanced Validation**: Async validation, cross-field validation
-3. **Accessibility**: Complete ARIA implementation and keyboard navigation
-4. **Performance**: Virtualization for large forms, optimized re-renders
-5. **Integrations**: Headless UI components, Chakra UI, Material-UI adapters
+### 💡 Possible Future Enhancements
 
-## 🔄 Migration from Original
+Let us know which features you'd like to see!
+1. **Additional Field Types**: 
+   - Color picker
+   - Rich text editor (with Firebase Storage for images)
+   - Date range picker
+   - Multi-select with search
+2. **Advanced Firebase Features**:
+   - Offline persistence configuration
+   - Security rules generator from Zod schemas
+   - Cloud Functions integration for form processing
+   - Firebase Analytics event tracking
+3. **Developer Experience**:
+   - CLI tool for scaffolding forms
+   - VS Code extension for Zod schema snippets
+   - Form migration tool from other libraries
+4. **Accessibility**: Enhanced ARIA support and keyboard navigation
+5. **Performance**: 
+   - Virtualization for large forms
+   - Lazy loading for Firebase document references
+   - Optimistic UI updates
 
-This React library maintains the core philosophy and features of the original Node.js/Express Zod Form Node:
+## 🔄 Evolution from Zod Form Node
 
-### ✅ **Preserved Features**
+This library evolved from the original Node.js/Express Zod Form Node, now reimagined as a Firebase-first React solution:
+
+### ✅ **Preserved Core Philosophy**
 - Schema-driven form generation
 - Automatic field type detection
 - Dark theme aesthetic
 - Enhanced field types (star ratings, file uploads)
 - Validation integration
-- Template system (now component-based)
 
-### 🔄 **Modernized**
-- React components instead of server-side rendering
-- TypeScript with full type safety
-- React Hook Form for performance
-- Tailwind CSS for styling
-- Component-based architecture
+### 🚀 **Transformed for Firebase**
+- **From Express to Firebase**: Built for Firebase App Hosting
+- **From Server-Side to React**: Modern component architecture
+- **From Templates to Components**: Flexible, composable UI
+- **From SQL to Firestore**: NoSQL-optimized data handling
+- **From Sessions to Firebase Auth**: Modern authentication
 
-### 📈 **Enhanced**
-- Better TypeScript integration
-- More flexible theming system
-- Improved accessibility
-- Mobile-first responsive design
-- Modern React patterns (hooks, context, etc.)
+### 📈 **New Capabilities**
+- **Real-time Sync**: Live form updates with Firestore
+- **Auto-save**: Debounced saves to prevent data loss
+- **File Storage**: Direct Firebase Storage integration
+- **User Context**: Automatic user tracking and permissions
+- **Offline Support**: Firebase's offline persistence
+- **Type Safety**: End-to-end TypeScript with Zod
 
 ## 🤝 Contributing
 

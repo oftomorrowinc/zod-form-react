@@ -25,7 +25,8 @@
     "demo": "npm run example:dev",
     "emulators": "firebase emulators:start",
     "emulators:export": "firebase emulators:export ./emulator-data",
-    "emulators:import": "firebase emulators:start --import=./emulator-data"
+    "emulators:import": "firebase emulators:start --import=./emulator-data",
+    "release": "git add . && git commit -m \"Release v$npm_package_version\" && git tag -a v$npm_package_version -m \"Release v$npm_package_version\" && git push && git push --tags"
   },
   "keywords": [
     "react",
@@ -39,8 +40,16 @@
     "tailwind",
     "validation"
   ],
-  "author": "Your Name",
+  "author": "Todd Sampson",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/zod-form-react.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/zod-form-react/issues"
+  },
+  "homepage": "https://github.com/yourusername/zod-form-react#readme",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-node-resolve": "^15.2.3",
@@ -49,6 +58,7 @@
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.5.1",
     "@types/jest": "^29.5.8",
+    "@types/node": "^20.10.0",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "@typescript-eslint/eslint-plugin": "^6.12.0",

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Controller } from 'react-hook-form';
+import { Controller, Path, FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
 import { ZodFormConfig, FormData, FieldType, Theme } from '../types';
 import { useZodForm, useConditionalFields, useArrayField } from '../hooks/useZodForm';
@@ -30,6 +30,32 @@ interface ZodFormProps<T extends z.ZodTypeAny> extends ZodFormConfig {
   onSubmit: (data: FormData<T>) => void | Promise<void>;
 }
 
+/**
+ * Main form component that generates forms from Zod schemas
+ *
+ * @description
+ * Automatically generates type-safe forms from Zod schemas with built-in validation,
+ * theming, and field type detection. Integrates with React Hook Form for optimal performance.
+ *
+ * @example
+ * ```tsx
+ * const userSchema = z.object({
+ *   name: z.string().min(2),
+ *   email: z.string().email(),
+ *   age: z.number().min(18),
+ * });
+ *
+ * <ZodForm
+ *   schema={userSchema}
+ *   onSubmit={(data) => console.log(data)}
+ *   theme="dark"
+ *   layout="vertical"
+ * />
+ * ```
+ *
+ * @param props - Configuration and options for the form
+ * @returns React form component
+ */
 export function ZodForm<T extends z.ZodTypeAny>({
   schema,
   className,
@@ -48,7 +74,7 @@ export function ZodForm<T extends z.ZodTypeAny>({
   disabled = false,
   defaultValues,
   mode = 'onChange',
-  ...config
+  ...restProps
 }: ZodFormProps<T>) {
   // Initialize form
   const form = useZodForm({
@@ -63,10 +89,8 @@ export function ZodForm<T extends z.ZodTypeAny>({
     control,
     handleSubmit,
     watch,
-    reset,
     formState: { errors, isSubmitting },
     fields,
-    schemaAnalysis,
     submitForm,
     resetForm,
   } = form;
@@ -101,7 +125,7 @@ export function ZodForm<T extends z.ZodTypeAny>({
     if (!visibleFields[name]) return null;
 
     const fieldConfig = { ...fieldAnalysis.config, ...fieldOptions[name] };
-    const fieldError = errors[name];
+    const fieldError = (errors as any)[name];
     const isFieldDisabled = disabled || fieldConfig.disabled || loading;
     const isFieldReadOnly = fieldConfig.readOnly;
 
@@ -122,7 +146,7 @@ export function ZodForm<T extends z.ZodTypeAny>({
     return (
       <div key={name} className={containerClasses}>
         <Controller
-          name={name}
+          name={name as Path<FormData<T>>}
           control={control}
           render={({ field, fieldState }) => {
             const componentProps = {
@@ -262,7 +286,7 @@ export function ZodForm<T extends z.ZodTypeAny>({
   // Render array field
   const renderArrayField = (name: string, config: any) => {
     const arrayField = useArrayField(name, form);
-    const fieldError = errors[name];
+    const fieldError = (errors as any)[name];
 
     return (
       <ArrayField
@@ -274,7 +298,7 @@ export function ZodForm<T extends z.ZodTypeAny>({
         onAdd={() => arrayField.append({})}
         onRemove={arrayField.remove}
         onMove={arrayField.move}
-        renderItem={(item, index) => (
+        renderItem={(_item, index) => (
           <div key={`${name}.${index}`}>
             {/* Render nested fields based on array item schema */}
             <Input name={`${name}.${index}`} placeholder={`Item ${index + 1}`} className="w-full" />
@@ -292,7 +316,7 @@ export function ZodForm<T extends z.ZodTypeAny>({
 
   // Render object field
   const renderObjectField = (name: string, config: any) => {
-    const fieldError = errors[name];
+    const fieldError = (errors as any)[name];
 
     return (
       <ObjectField
@@ -306,12 +330,12 @@ export function ZodForm<T extends z.ZodTypeAny>({
       >
         {/* Render nested object fields */}
         <div className="space-y-4">
-          {Object.entries(config.fields || {}).map(([fieldName, fieldConfig]) => (
+          {Object.entries(config.fields || {}).map(([fieldName, fieldConfig]: [string, any]) => (
             <div key={fieldName} className="space-y-2">
-              <Label>{fieldConfig.label || fieldName}</Label>
+              <Label>{fieldConfig?.label || fieldName}</Label>
               <Input
                 name={`${name}.${fieldName}`}
-                placeholder={fieldConfig.placeholder}
+                placeholder={fieldConfig?.placeholder}
                 disabled={disabled || loading}
               />
             </div>

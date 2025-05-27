@@ -133,8 +133,10 @@ const StarRating = ({
             onMouseEnter={() => setHoverValue(starValue)}
             onMouseLeave={() => setHoverValue(null)}
             onClick={() => onChange(starValue)}
+            aria-label={`Rate ${starValue} out of ${maxStars} stars`}
+            title={`Rate ${starValue} out of ${maxStars} stars`}
           >
-            <svg fill="currentColor" viewBox="0 0 24 24">
+            <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
           </button>
@@ -184,8 +186,8 @@ const DocumentTextarea = ({
         }`}
         placeholder={placeholder}
       />
-      <label className="absolute top-3 right-3 cursor-pointer text-purple-400 hover:text-purple-300">
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <label className="absolute top-3 right-3 cursor-pointer text-purple-400 hover:text-purple-300" title="Upload file">
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
         </svg>
         <input
@@ -193,6 +195,7 @@ const DocumentTextarea = ({
           accept=".txt,.md,.doc,.docx"
           onChange={handleFileUpload}
           className="hidden"
+          aria-label="Upload file"
         />
       </label>
     </div>
@@ -241,8 +244,10 @@ const ArrayField = ({
                 type="button"
                 onClick={() => onRemove(index)}
                 className="text-red-400 hover:text-red-300 ml-2"
+                aria-label={`Remove ${option?.label || item}`}
+                title={`Remove ${option?.label || item}`}
               >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -258,6 +263,7 @@ const ArrayField = ({
             value={selectedValue}
             onChange={(e) => setSelectedValue(e.target.value)}
             className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            aria-label="Select an interest to add"
           >
             <option value="">Select an interest...</option>
             {availableToAdd.map(option => (
@@ -281,7 +287,7 @@ const ArrayField = ({
 };
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<'basic' | 'complex' | 'allfields'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'complex' | 'allfields' | 'firebase'>('basic');
   const [submittedData, setSubmittedData] = useState<{ type: string; data: BasicFormData | ComplexFormData | EnhancedFormData } | null>(null);
 
   // Basic form
@@ -424,6 +430,16 @@ export default function HomePage() {
             >
               All Field Types
             </button>
+            <button
+              onClick={() => setActiveTab('firebase')}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                activeTab === 'firebase'
+                  ? 'bg-orange-600 text-white'
+                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
+              }`}
+            >
+              Firebase Fields
+            </button>
           </div>
         </div>
 
@@ -432,7 +448,10 @@ export default function HomePage() {
           {/* Form Section - spans 2 columns */}
           <div className="lg:col-span-2 bg-gray-800 rounded-lg p-6">
             <h2 className="text-2xl font-semibold mb-6">
-              {activeTab === 'basic' ? 'Basic Form Example' : activeTab === 'complex' ? 'Nested Form Fields Example' : 'All Field Types Example'}
+              {activeTab === 'basic' ? 'Basic Form Example' : 
+               activeTab === 'complex' ? 'Nested Form Fields Example' : 
+               activeTab === 'allfields' ? 'All Field Types Example' :
+               'Firebase Field Types'}
             </h2>
 
             {activeTab === 'basic' ? (
@@ -997,6 +1016,133 @@ export default function HomePage() {
                   Submit Form
                 </button>
               </form>
+            ) : activeTab === 'firebase' ? (
+              <div className="space-y-6">
+                <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 mb-6">
+                  <h3 className="text-lg font-semibold text-blue-300 mb-2">🔥 Firebase Field Types</h3>
+                  <p className="text-blue-200 text-sm">
+                    These specialized fields integrate with Firebase services. They require Firebase setup and are shown here for demonstration.
+                  </p>
+                </div>
+
+                {/* DocumentReferenceField Demo */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Document Reference Field
+                    <span className="text-orange-400 text-xs ml-2">(Firestore Integration)</span>
+                  </label>
+                  <select 
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    disabled
+                    aria-label="Document Reference Field Demo"
+                  >
+                    <option>Select a Firestore document...</option>
+                    <option>user-123 (John Doe)</option>
+                    <option>user-456 (Jane Smith)</option>
+                    <option>user-789 (Bob Johnson)</option>
+                  </select>
+                  <p className="text-gray-400 text-xs">
+                    Dynamically loads and displays Firestore documents from a collection with customizable display fields.
+                  </p>
+                </div>
+
+                {/* ServerTimestampField Demo */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Server Timestamp Field
+                    <span className="text-orange-400 text-xs ml-2">(Firebase Server Time)</span>
+                  </label>
+                  <div className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-400">
+                    Will be set to server timestamp on save
+                  </div>
+                  <p className="text-gray-400 text-xs">
+                    Automatically sets Firebase server timestamp when the form is submitted. Shows helpful preview text.
+                  </p>
+                </div>
+
+                {/* GeoPointField Demo */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Geographic Location (GeoPoint)
+                    <span className="text-orange-400 text-xs ml-2">(Coordinates)</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <input
+                        type="number"
+                        placeholder="Latitude"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        defaultValue="37.7749"
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="number"
+                        placeholder="Longitude"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        defaultValue="-122.4194"
+                        disabled
+                      />
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    className="text-sm text-blue-400 hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled
+                  >
+                    📍 Use Current Location
+                  </button>
+                  <p className="text-gray-400 text-xs">
+                    Captures latitude/longitude coordinates with optional geolocation API integration.
+                  </p>
+                </div>
+
+                {/* FirebaseStorageField Demo */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Firebase Storage Upload
+                    <span className="text-orange-400 text-xs ml-2">(File Storage)</span>
+                  </label>
+                  <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center">
+                    <div className="text-center">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+                      </svg>
+                      <div className="mt-4">
+                        <p className="text-sm text-gray-300">
+                          <span className="font-medium text-gray-400 cursor-not-allowed">Click to upload</span>
+                          {' '}or drag and drop
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">Firebase Storage integration</p>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-gray-400 text-xs">
+                    Uploads files directly to Firebase Storage with progress tracking and automatic URL generation.
+                  </p>
+                </div>
+
+                {/* Additional Firebase Features */}
+                <div className="bg-gray-900/50 rounded-lg p-4 space-y-3">
+                  <h4 className="font-semibold text-gray-300">Additional Firebase Features:</h4>
+                  <ul className="text-sm text-gray-400 space-y-1">
+                    <li>• <strong>Real-time sync:</strong> Forms automatically sync with Firestore in real-time</li>
+                    <li>• <strong>Auto-save:</strong> Configurable auto-save functionality</li>
+                    <li>• <strong>Authentication:</strong> Integration with Firebase Auth for user context</li>
+                    <li>• <strong>Validation:</strong> Client and server-side validation with Zod schemas</li>
+                    <li>• <strong>Metadata:</strong> Automatic createdAt, updatedAt, and user tracking</li>
+                  </ul>
+                </div>
+
+                <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
+                  <h4 className="font-semibold text-yellow-300 mb-2">💡 Setup Required</h4>
+                  <p className="text-yellow-200 text-sm">
+                    To use Firebase fields, install Firebase and configure your project with the Firebase config. 
+                    See the documentation for setup instructions.
+                  </p>
+                </div>
+              </div>
             ) : null}
           </div>
 
@@ -1066,7 +1212,7 @@ export default function HomePage() {
 
         {/* Features Overview */}
         <div className="mt-12 bg-gray-800 rounded-lg p-6">
-          <h2 className="text-2xl font-semibold mb-6">Features Converted from Original</h2>
+          <h2 className="text-2xl font-semibold mb-6">Features</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="bg-gray-700 p-4 rounded-lg">
               <h3 className="font-semibold text-blue-400 mb-2">✅ Schema-Driven</h3>

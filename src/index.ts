@@ -26,5 +26,8 @@ export {
 
 export { cn, themeClasses, getThemeClasses } from './utils/cn';
 
+// Firebase exports
+export * from './firebase';
+
 // CSS
 import './styles/globals.css';

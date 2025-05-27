@@ -2,7 +2,7 @@
 module.exports = {
   content: [
     "./src/**/*.{js,ts,jsx,tsx}",
-    "./examples/**/*.{js,ts,jsx,tsx}"
+    "./examples/nextjs-demo/src/**/*.{js,ts,jsx,tsx}"
   ],
   darkMode: 'class',
   theme: {

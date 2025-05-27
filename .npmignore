@@ -1,0 +1,66 @@
+# Source files (only include built files)
+src/
+*.ts
+*.tsx
+!dist/**/*.d.ts
+
+# Configuration files
+.prettierrc
+.prettierignore
+eslint.config.js
+jest.config.js
+rollup.config.js
+tsconfig.json
+tailwind.config.js
+postcss.config.js
+firebase.json
+
+# Development files
+examples/
+tests/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Documentation source
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+.env.example
+
+# Git and CI
+.git/
+.github/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs and temp files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+emulator-data/
+
+# Build artifacts
+*.tsbuildinfo
+.cache/
+
+# Scripts
+scripts/
+
+# Keep these files
+!README.md
+!LICENSE
+!package.json
+!dist/

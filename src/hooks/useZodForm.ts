@@ -1,4 +1,4 @@
-import { useForm, UseFormProps, UseFormReturn } from 'react-hook-form';
+import { useForm, UseFormProps, UseFormReturn, DefaultValues } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMemo, useCallback } from 'react';
@@ -51,7 +51,7 @@ export function useZodForm<T extends z.ZodTypeAny>({
   // Initialize React Hook Form with Zod resolver
   const form = useForm<FormData<T>>({
     resolver: zodResolver(schema),
-    defaultValues: computedDefaultValues,
+    defaultValues: computedDefaultValues as DefaultValues<FormData<T>>,
     mode,
     ...formOptions,
   });
