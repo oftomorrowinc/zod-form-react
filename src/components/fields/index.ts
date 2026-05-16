@@ -1,3 +1,2 @@
-// Complex Field Components
-export { ArrayField } from './ArrayField';
-export { ObjectField } from './ObjectField';
+export { ArrayField, type ArrayFieldProps, type ArrayItem } from './ArrayField';
+export { ObjectField, type ObjectFieldProps } from './ObjectField';

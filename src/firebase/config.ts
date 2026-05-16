@@ -66,7 +66,7 @@ export function initializeFirebase(
     firestorePort?: number;
     authPort?: number;
     storagePort?: number;
-  }
+  },
 ): FirebaseServices {
   // Return existing instance if already initialized
   if (firebaseServices && getApps().length > 0) {
@@ -98,7 +98,7 @@ export function initializeFirebase(
       throw new Error(
         `Missing required Firebase config field: ${field}. ` +
           `Please ensure your environment variables or config object includes all required fields. ` +
-          `See https://firebase.google.com/docs/web/setup for more information.`
+          `See https://firebase.google.com/docs/web/setup for more information.`,
       );
     }
   }
@@ -120,30 +120,24 @@ export function initializeFirebase(
   if (shouldUseEmulators && typeof window !== 'undefined') {
     const host = options?.emulatorHost || 'localhost';
 
-    // Connect Firestore emulator
     const firestorePort = options?.firestorePort || 8080;
     try {
       connectFirestoreEmulator(firestore, host, firestorePort);
-      console.log(`Connected to Firestore emulator at ${host}:${firestorePort}`);
-    } catch (error) {
-      // Already connected
+    } catch (_error) {
+      // Already connected; emulator setup is idempotent.
     }
 
-    // Connect Auth emulator
     const authPort = options?.authPort || 9099;
     try {
       connectAuthEmulator(auth, `http://${host}:${authPort}`);
-      console.log(`Connected to Auth emulator at ${host}:${authPort}`);
-    } catch (error) {
+    } catch (_error) {
       // Already connected
     }
 
-    // Connect Storage emulator
     const storagePort = options?.storagePort || 9199;
     try {
       connectStorageEmulator(storage, host, storagePort);
-      console.log(`Connected to Storage emulator at ${host}:${storagePort}`);
-    } catch (error) {
+    } catch (_error) {
       // Already connected
     }
   }
@@ -181,7 +175,10 @@ export function useFirebase(): FirebaseServices {
 export function createFirestoreConverter<T>() {
   return {
     toFirestore: (data: T) => data,
-    fromFirestore: (snapshot: any, options: any) => {
+    fromFirestore: (
+      snapshot: { id: string; data: (options: unknown) => Record<string, unknown> },
+      options: unknown,
+    ) => {
       const data = snapshot.data(options);
       return {
         id: snapshot.id,

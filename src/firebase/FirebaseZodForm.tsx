@@ -1,18 +1,18 @@
-import React from 'react';
+import * as React from 'react';
+import { type Firestore } from 'firebase/firestore';
+import { type FirebaseStorage } from 'firebase/storage';
+import { type User } from 'firebase/auth';
 import { z } from 'zod';
 import { ZodForm } from '../components/ZodForm';
-import { useFirestoreForm, FirestoreFormConfig } from './hooks';
-import { Firestore } from 'firebase/firestore';
-import { FirebaseStorage } from 'firebase/storage';
-import { User } from 'firebase/auth';
+import { useFirestoreForm, type FirestoreFormConfig } from './hooks';
 
-export interface FirebaseZodFormProps<T extends z.ZodType>
-  extends Omit<FirestoreFormConfig<T>, 'firestore'> {
-  // Firebase instances
+export interface FirebaseZodFormProps<T extends z.ZodType> extends Omit<
+  FirestoreFormConfig<T>,
+  'firestore'
+> {
   firestore: Firestore;
   storage?: FirebaseStorage;
-
-  // Form configuration
+  user?: User | null;
   submitButtonText?: string;
   resetButtonText?: string;
   showSubmitButton?: boolean;
@@ -20,25 +20,20 @@ export interface FirebaseZodFormProps<T extends z.ZodType>
   className?: string;
   theme?: 'dark' | 'light';
   layout?: 'vertical' | 'horizontal' | 'grid';
-
-  // Field configuration for Firebase-specific fields
-  firebaseFieldConfig?: {
-    storage?: FirebaseStorage;
-    storagePath?: string;
-    documentPickerCollections?: Record<string, string>;
-  };
-
-  // Loading and error states
   showLoadingState?: boolean;
   showErrorState?: boolean;
   loadingComponent?: React.ReactNode;
   errorComponent?: (error: Error) => React.ReactNode;
 }
 
+/**
+ * Renders a {@link ZodForm} bound to a Firestore document. Loading state is
+ * shown while the document hydrates; errors are surfaced via `errorComponent`.
+ * Most consumers want this for "edit one row of a known collection."
+ */
 export function FirebaseZodForm<T extends z.ZodType>({
   schema,
   firestore,
-  storage,
   collection,
   documentId,
   documentRef,
@@ -55,9 +50,8 @@ export function FirebaseZodForm<T extends z.ZodType>({
   showSubmitButton = true,
   showResetButton = false,
   className,
-  theme = 'dark',
+  theme = 'light',
   layout = 'vertical',
-  firebaseFieldConfig,
   showLoadingState = true,
   showErrorState = true,
   loadingComponent,
@@ -69,8 +63,7 @@ export function FirebaseZodForm<T extends z.ZodType>({
     error,
     documentId: currentDocId,
     saveToFirestore,
-    handleSubmit,
-    ...formMethods
+    getValues,
   } = useFirestoreForm({
     schema,
     firestore,
@@ -87,47 +80,38 @@ export function FirebaseZodForm<T extends z.ZodType>({
     transformAfterLoad,
   });
 
-  const onSubmit = handleSubmit(async data => {
-    await saveToFirestore(data);
-  });
-
-  // Show loading state
   if (loading && showLoadingState) {
     return (
       <div className={className}>
-        {loadingComponent || (
-          <div className="flex items-center justify-center p-8">
-            <div className="text-gray-400">Loading...</div>
-          </div>
+        {loadingComponent ?? (
+          <div className="flex items-center justify-center p-8 text-muted-foreground">Loading…</div>
         )}
       </div>
     );
   }
 
-  // Show error state
   if (error && showErrorState && !saving) {
     return (
       <div className={className}>
         {errorComponent ? (
           errorComponent(error)
         ) : (
-          <div className="p-4 bg-red-900/20 border border-red-500 rounded-md">
-            <p className="text-red-400">Error: {error.message}</p>
+          <div className="rounded-md border border-destructive bg-destructive/10 p-4 text-sm text-destructive">
+            Error: {error.message}
           </div>
         )}
       </div>
     );
   }
 
-  // TODO: Pass Firebase context to fields that need it
-  // storage and firebaseFieldConfig will be used when implementing custom field rendering
-
   return (
     <ZodForm
       schema={schema}
-      onSubmit={onSubmit}
-      defaultValues={formMethods.getValues()}
-      submitButtonText={saving ? 'Saving...' : submitButtonText}
+      onSubmit={async (data) => {
+        await saveToFirestore(data as z.infer<T>);
+      }}
+      defaultValues={getValues() as Record<string, unknown>}
+      submitButtonText={saving ? 'Saving…' : submitButtonText}
       resetButtonText={resetButtonText}
       showSubmitButton={showSubmitButton}
       showResetButton={showResetButton}
@@ -136,13 +120,10 @@ export function FirebaseZodForm<T extends z.ZodType>({
       className={className}
       theme={theme}
       layout={layout}
-      fieldOptions={{}}
     >
-      {/* Status indicators */}
       {autoSave && (
-        <div className="text-sm text-gray-500 mt-2">
-          {saving && 'Saving...'}
-          {!saving && currentDocId && 'All changes saved'}
+        <div className="text-sm text-muted-foreground">
+          {saving ? 'Saving…' : currentDocId ? 'All changes saved' : null}
         </div>
       )}
     </ZodForm>

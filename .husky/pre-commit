@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Pre-commit:
+#   1. `effective audit --fix` enforces the constitution (escape-hatch drift,
+#      untyped mocks, etc.) across the whole repo. Fast.
+#   2. `lint-staged` runs prettier + eslint --fix on staged files only.
+# Toolchain checks (typecheck, test, coverage, build) run in CI — pre-commit
+# stays light so the dev loop isn't slowed.
+pnpm exec effective audit --fix
+pnpm exec lint-staged

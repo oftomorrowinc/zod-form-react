@@ -1,203 +1,140 @@
-import React from 'react';
-import { ArrayFieldProps } from '../../types/components';
-import { cn, themeClasses } from '../../utils/cn';
-import { Button } from '../ui/Button';
+import * as React from 'react';
+import { GripVertical, Plus, Trash2 } from 'lucide-react';
+import { Button } from '../ui/button';
+import { cn } from '../../utils/cn';
+
+export interface ArrayItem {
+  id: string;
+  [key: string]: unknown;
+}
+
+export interface ArrayFieldProps {
+  name: string;
+  label?: string;
+  description?: string;
+  items: ArrayItem[];
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  onMove?: (from: number, to: number) => void;
+  renderItem: (item: ArrayItem, index: number) => React.ReactNode;
+  addButtonText?: string;
+  removeButtonText?: string;
+  minItems?: number;
+  maxItems?: number;
+  sortable?: boolean;
+  disabled?: boolean;
+  className?: string;
+}
 
 export const ArrayField = React.forwardRef<HTMLDivElement, ArrayFieldProps>(
   (
     {
-      className,
       name,
       label,
       description,
-      error,
       items,
       onAdd,
       onRemove,
       onMove,
       renderItem,
-      addButtonText = 'Add Item',
+      addButtonText = 'Add item',
       removeButtonText = 'Remove',
       minItems = 0,
       maxItems,
       sortable = false,
-      collapsible = false,
       disabled,
-      ...props
+      className,
     },
-    ref
+    ref,
   ) => {
     const canAdd = !maxItems || items.length < maxItems;
     const canRemove = items.length > minItems;
-    const hasError = !!error;
 
-    const handleDragStart = (e: React.DragEvent, index: number) => {
+    const onDragStart = (e: React.DragEvent, index: number) => {
       if (!sortable || disabled) return;
-      e.dataTransfer.setData('text/plain', index.toString());
+      e.dataTransfer.setData('text/plain', String(index));
       e.dataTransfer.effectAllowed = 'move';
     };
-
-    const handleDragOver = (e: React.DragEvent) => {
+    const onDragOver = (e: React.DragEvent) => {
       if (!sortable || disabled) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
     };
-
-    const handleDrop = (e: React.DragEvent, dropIndex: number) => {
-      if (!sortable || disabled) return;
+    const onDrop = (e: React.DragEvent, dropIndex: number) => {
+      if (!sortable || disabled || !onMove) return;
       e.preventDefault();
       const dragIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
-      if (dragIndex !== dropIndex && onMove) {
+      if (!Number.isNaN(dragIndex) && dragIndex !== dropIndex) {
         onMove(dragIndex, dropIndex);
       }
     };
 
-    const containerClasses = cn(
-      themeClasses.array.container,
-      hasError && 'border-zf-error',
-      className
-    );
-
     return (
-      <div ref={ref} className={containerClasses} {...props}>
-        {/* Array Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            {label && <h3 className="text-sm font-medium text-zf-text">{label}</h3>}
-            {description && <p className="text-xs text-zf-text-muted mt-1">{description}</p>}
+      <div
+        ref={ref}
+        className={cn('space-y-3 rounded-md border bg-card p-4', className)}
+        data-field={name}
+      >
+        {(label || description) && (
+          <div className="space-y-1">
+            {label && <div className="text-sm font-medium">{label}</div>}
+            {description && <p className="text-sm text-muted-foreground">{description}</p>}
           </div>
-          <div className="flex items-center space-x-2 text-xs text-zf-text-muted">
-            <span>
-              {items.length} item{items.length !== 1 ? 's' : ''}
-            </span>
-            {minItems > 0 && <span>• Min: {minItems}</span>}
-            {maxItems && <span>• Max: {maxItems}</span>}
-          </div>
-        </div>
+        )}
 
-        {/* Array Items */}
-        <div className="space-y-3">
-          {items.length === 0 ? (
-            <div className="text-center py-8 text-zf-text-muted">
-              <svg
-                className="mx-auto h-8 w-8 mb-2 opacity-50"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                />
-              </svg>
-              <p className="text-sm">No items yet</p>
-            </div>
-          ) : (
-            items.map((item, index) => (
-              <div
+        {items.length === 0 ? (
+          <p className="rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">
+            No items yet
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {items.map((item, index) => (
+              <li
                 key={item.id}
-                className={cn(
-                  themeClasses.array.item,
-                  sortable && !disabled && 'cursor-move',
-                  hasError && 'border-zf-error/50'
-                )}
+                className="rounded-md border bg-background p-3"
                 draggable={sortable && !disabled}
-                onDragStart={e => handleDragStart(e, index)}
-                onDragOver={handleDragOver}
-                onDrop={e => handleDrop(e, index)}
+                onDragStart={(e) => onDragStart(e, index)}
+                onDragOver={onDragOver}
+                onDrop={(e) => onDrop(e, index)}
               >
-                {/* Item Header */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-2">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium">
                     {sortable && !disabled && (
-                      <svg
-                        className="h-4 w-4 text-zf-text-muted cursor-grab active:cursor-grabbing"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 8h16M4 16h16"
-                        />
-                      </svg>
+                      <GripVertical className="h-4 w-4 text-muted-foreground" aria-hidden />
                     )}
-                    <span className="text-sm font-medium text-zf-text">Item {index + 1}</span>
+                    <span>Item {index + 1}</span>
                   </div>
-
                   {canRemove && !disabled && (
                     <Button
                       type="button"
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => onRemove(index)}
-                      className="text-zf-error hover:text-zf-error/80 hover:bg-zf-error/10"
-                      title={removeButtonText}
+                      aria-label={removeButtonText}
                     >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
+                      <Trash2 className="h-4 w-4" aria-hidden />
                     </Button>
                   )}
                 </div>
+                {renderItem(item, index)}
+              </li>
+            ))}
+          </ul>
+        )}
 
-                {/* Item Content */}
-                <div className="pl-6 border-l-2 border-zf-border/30">{renderItem(item, index)}</div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Add Button */}
         {canAdd && !disabled && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onAdd}
-            className={themeClasses.array.addButton}
-            leftIcon={
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
-              </svg>
-            }
-          >
-            {addButtonText}
+          <Button type="button" variant="outline" onClick={onAdd} className="w-full">
+            <Plus className="h-4 w-4" aria-hidden /> {addButtonText}
           </Button>
         )}
 
-        {/* Validation Messages */}
-        <div className="mt-2 space-y-1">
-          {!canAdd && maxItems && (
-            <p className="text-xs text-zf-text-muted">Maximum {maxItems} items allowed</p>
-          )}
-          {items.length < minItems && (
-            <p className="text-xs text-zf-error">
-              At least {minItems} item{minItems !== 1 ? 's' : ''} required
-            </p>
-          )}
-        </div>
+        {items.length < minItems && (
+          <p className="text-sm text-destructive">
+            At least {minItems} item{minItems === 1 ? '' : 's'} required
+          </p>
+        )}
       </div>
     );
-  }
+  },
 );
-
 ArrayField.displayName = 'ArrayField';

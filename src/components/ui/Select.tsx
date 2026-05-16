@@ -1,217 +1,147 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { SelectProps } from '../../types/components';
-import { cn, themeClasses } from '../../utils/cn';
+import * as React from 'react';
+import * as SelectPrimitive from '@radix-ui/react-select';
+import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { cn } from '../../utils/cn';
 
-export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  (
-    {
+const Select = SelectPrimitive.Root;
+const SelectGroup = SelectPrimitive.Group;
+const SelectValue = SelectPrimitive.Value;
+
+const SelectTrigger = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1',
       className,
-      error,
-      options,
-      emptyOption,
-      searchable = false,
-      creatable = false,
-      onCreateOption,
-      disabled,
-      ...props
-    },
-    ref
-  ) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [searchValue, setSearchValue] = useState('');
-    const [filteredOptions, setFilteredOptions] = useState(options);
-    const selectRef = useRef<HTMLSelectElement>(null);
-    const hasError = !!error;
+    )}
+    {...props}
+  >
+    {children}
+    <SelectPrimitive.Icon asChild>
+      <ChevronDown className="h-4 w-4 opacity-50" />
+    </SelectPrimitive.Icon>
+  </SelectPrimitive.Trigger>
+));
+SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
-    // Group options by group property
-    const groupedOptions = options.reduce(
-      (acc, option) => {
-        const group = option.group || 'default';
-        if (!acc[group]) acc[group] = [];
-        acc[group].push(option);
-        return acc;
-      },
-      {} as Record<string, typeof options>
-    );
+const SelectScrollUpButton = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.ScrollUpButton
+    ref={ref}
+    className={cn('flex cursor-default items-center justify-center py-1', className)}
+    {...props}
+  >
+    <ChevronUp className="h-4 w-4" />
+  </SelectPrimitive.ScrollUpButton>
+));
+SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName;
 
-    const hasGroups = Object.keys(groupedOptions).length > 1 || options.some(opt => opt.group);
+const SelectScrollDownButton = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.ScrollDownButton>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.ScrollDownButton
+    ref={ref}
+    className={cn('flex cursor-default items-center justify-center py-1', className)}
+    {...props}
+  >
+    <ChevronDown className="h-4 w-4" />
+  </SelectPrimitive.ScrollDownButton>
+));
+SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayName;
 
-    // Filter options based on search
-    useEffect(() => {
-      if (!searchValue.trim()) {
-        setFilteredOptions(options);
-        return;
-      }
-
-      const filtered = options.filter(
-        option =>
-          option.label.toLowerCase().includes(searchValue.toLowerCase()) ||
-          String(option.value).toLowerCase().includes(searchValue.toLowerCase())
-      );
-      setFilteredOptions(filtered);
-    }, [searchValue, options]);
-
-    const selectClasses = cn(
-      themeClasses.select.base,
-      hasError && themeClasses.select.error,
-      disabled && themeClasses.input.disabled,
-      className
-    );
-
-    // Simple select for non-searchable
-    if (!searchable && !creatable) {
-      return (
-        <select ref={ref} className={selectClasses} disabled={disabled} {...props}>
-          {emptyOption && <option value="">{emptyOption}</option>}
-
-          {hasGroups
-            ? Object.entries(groupedOptions).map(([group, groupOptions]) => (
-                <optgroup key={group} label={group !== 'default' ? group : undefined}>
-                  {groupOptions.map(option => (
-                    <option
-                      key={String(option.value)}
-                      value={option.value}
-                      disabled={option.disabled}
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))
-            : options.map(option => (
-                <option key={String(option.value)} value={option.value} disabled={option.disabled}>
-                  {option.label}
-                </option>
-              ))}
-        </select>
-      );
-    }
-
-    // Enhanced select with search and create functionality
-    return (
-      <div className="relative">
-        <select
-          ref={element => {
-            if (selectRef.current !== element) {
-              (selectRef as React.MutableRefObject<HTMLSelectElement | null>).current = element;
-            }
-            if (typeof ref === 'function') {
-              ref(element);
-            } else if (ref && 'current' in ref) {
-              (ref as any).current = element;
-            }
-          }}
-          className={cn(selectClasses, 'sr-only')}
-          disabled={disabled}
-          {...props}
-        >
-          {emptyOption && <option value="">{emptyOption}</option>}
-          {options.map(option => (
-            <option key={String(option.value)} value={option.value} disabled={option.disabled}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-
-        <div
-          className={cn(selectClasses, 'cursor-pointer', isOpen && 'ring-2 ring-zf-primary')}
-          onClick={() => !disabled && setIsOpen(!isOpen)}
-        >
-          <div className="flex items-center justify-between">
-            <span className="truncate">
-              {props.value
-                ? options.find(opt => opt.value === props.value)?.label || String(props.value)
-                : emptyOption || 'Select an option...'}
-            </span>
-            <svg
-              className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </div>
-        </div>
-
-        {isOpen && !disabled && (
-          <div className="absolute z-10 mt-1 w-full bg-zf-surface border border-zf-border rounded-md shadow-lg max-h-60 overflow-auto">
-            {searchable && (
-              <div className="p-2 border-b border-zf-border">
-                <input
-                  type="text"
-                  placeholder="Search options..."
-                  value={searchValue}
-                  onChange={e => setSearchValue(e.target.value)}
-                  className={cn(themeClasses.input.base, 'w-full')}
-                  autoFocus
-                />
-              </div>
-            )}
-
-            <div className="py-1">
-              {emptyOption && (
-                <button
-                  type="button"
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-zf-surface/50 focus:bg-zf-surface/50 focus:outline-none"
-                  onClick={() => {
-                    props.onChange?.({ target: { value: '' } } as any);
-                    setIsOpen(false);
-                    setSearchValue('');
-                  }}
-                >
-                  {emptyOption}
-                </button>
-              )}
-
-              {filteredOptions.length === 0 && searchValue && creatable && (
-                <button
-                  type="button"
-                  className="w-full text-left px-3 py-2 text-sm text-zf-primary hover:bg-zf-surface/50 focus:bg-zf-surface/50 focus:outline-none"
-                  onClick={() => {
-                    onCreateOption?.(searchValue);
-                    setIsOpen(false);
-                    setSearchValue('');
-                  }}
-                >
-                  Create "{searchValue}"
-                </button>
-              )}
-
-              {filteredOptions.map(option => (
-                <button
-                  key={String(option.value)}
-                  type="button"
-                  disabled={option.disabled}
-                  className={cn(
-                    'w-full text-left px-3 py-2 text-sm hover:bg-zf-surface/50 focus:bg-zf-surface/50 focus:outline-none',
-                    option.disabled && 'opacity-50 cursor-not-allowed',
-                    props.value === option.value && 'bg-zf-primary text-white'
-                  )}
-                  onClick={() => {
-                    if (!option.disabled) {
-                      props.onChange?.({ target: { value: option.value } } as any);
-                      setIsOpen(false);
-                      setSearchValue('');
-                    }
-                  }}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
+const SelectContent = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
+>(({ className, children, position = 'popper', ...props }, ref) => (
+  <SelectPrimitive.Portal>
+    <SelectPrimitive.Content
+      ref={ref}
+      className={cn(
+        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
+        position === 'popper' &&
+          'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
+        className,
+      )}
+      position={position}
+      {...props}
+    >
+      <SelectScrollUpButton />
+      <SelectPrimitive.Viewport
+        className={cn(
+          'p-1',
+          position === 'popper' &&
+            'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]',
         )}
+      >
+        {children}
+      </SelectPrimitive.Viewport>
+      <SelectScrollDownButton />
+    </SelectPrimitive.Content>
+  </SelectPrimitive.Portal>
+));
+SelectContent.displayName = SelectPrimitive.Content.displayName;
 
-        {isOpen && <div className="fixed inset-0 z-0" onClick={() => setIsOpen(false)} />}
-      </div>
-    );
-  }
-);
+const SelectLabel = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Label>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Label
+    ref={ref}
+    className={cn('py-1.5 pl-8 pr-2 text-sm font-semibold', className)}
+    {...props}
+  />
+));
+SelectLabel.displayName = SelectPrimitive.Label.displayName;
 
-Select.displayName = 'Select';
+const SelectItem = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Item
+    ref={ref}
+    className={cn(
+      'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      className,
+    )}
+    {...props}
+  >
+    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+      <SelectPrimitive.ItemIndicator>
+        <Check className="h-4 w-4" />
+      </SelectPrimitive.ItemIndicator>
+    </span>
+    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+  </SelectPrimitive.Item>
+));
+SelectItem.displayName = SelectPrimitive.Item.displayName;
+
+const SelectSeparator = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Separator
+    ref={ref}
+    className={cn('-mx-1 my-1 h-px bg-muted', className)}
+    {...props}
+  />
+));
+SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
+
+export {
+  Select,
+  SelectGroup,
+  SelectValue,
+  SelectTrigger,
+  SelectContent,
+  SelectLabel,
+  SelectItem,
+  SelectSeparator,
+  SelectScrollUpButton,
+  SelectScrollDownButton,
+};

@@ -1,48 +1,64 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    "./src/**/*.{js,ts,jsx,tsx}",
-    "./examples/nextjs-demo/src/**/*.{js,ts,jsx,tsx}"
-  ],
+export default {
   darkMode: 'class',
+  content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        'zf-primary': 'var(--zf-primary-color, #6366f1)',
-        'zf-secondary': 'var(--zf-secondary-color, #8b5cf6)',
-        'zf-background': 'var(--zf-background, #0f172a)',
-        'zf-surface': 'var(--zf-surface, #1e293b)',
-        'zf-border': 'var(--zf-border, #334155)',
-        'zf-text': 'var(--zf-text, #f8fafc)',
-        'zf-text-muted': 'var(--zf-text-muted, #94a3b8)',
-        'zf-error': 'var(--zf-error, #ef4444)',
-        'zf-success': 'var(--zf-success, #10b981)',
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
       },
-      animation: {
-        'fade-in': 'fadeIn 0.2s ease-in-out',
-        'slide-down': 'slideDown 0.2s ease-out',
-        'star-pulse': 'starPulse 0.3s ease-in-out',
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
       },
       keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
         },
-        slideDown: {
-          '0%': { transform: 'translateY(-4px)', opacity: '0' },
-          '100%': { transform: 'translateY(0)', opacity: '1' },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
         },
-        starPulse: {
-          '0%': { transform: 'scale(1)' },
-          '50%': { transform: 'scale(1.2)' },
-          '100%': { transform: 'scale(1)' },
-        },
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
       },
     },
   },
-  plugins: [
-    require('@tailwindcss/forms')({
-      strategy: 'class',
-    }),
-  ],
-}
+  plugins: [],
+};

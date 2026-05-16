@@ -1,15 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import * as React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { collection, query, getDocs } from 'firebase/firestore';
-import { Input } from '../components/ui/Input';
-import { FieldError } from 'react-hook-form';
-import { Label } from '../components/ui/Label';
-import { Select } from '../components/ui/Select';
-import { ErrorMessage } from '../components/ui/ErrorMessage';
-import { Description } from '../components/ui/Description';
-import { FileUpload } from '../components/ui/FileUpload';
+import {
+  collection,
+  getDocs,
+  query,
+  type Firestore,
+  type QueryConstraint,
+} from 'firebase/firestore';
+import { type FirebaseStorage } from 'firebase/storage';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { FileUpload } from '../components/ui/file-upload';
+import { Button } from '../components/ui/button';
 import { useFirebaseStorageUpload } from './hooks';
-import { FirebaseStorage } from 'firebase/storage';
 
 interface BaseFieldProps {
   name: string;
@@ -20,15 +30,18 @@ interface BaseFieldProps {
   className?: string;
 }
 
-// Document Reference Field
 interface DocumentReferenceFieldProps extends BaseFieldProps {
-  firestore: any; // Firestore instance
+  firestore: Firestore;
   collection: string;
   displayField?: string;
-  queryConstraints?: any[];
+  queryConstraints?: QueryConstraint[];
   placeholder?: string;
 }
 
+/**
+ * Renders a select whose options come from a Firestore collection. The selected
+ * document's ID is what gets written to the form value.
+ */
 export const DocumentReferenceField: React.FC<DocumentReferenceFieldProps> = ({
   name,
   label,
@@ -39,125 +52,118 @@ export const DocumentReferenceField: React.FC<DocumentReferenceFieldProps> = ({
   collection: collectionName,
   displayField = 'name',
   queryConstraints = [],
-  placeholder = 'Select a document',
+  placeholder = 'Select…',
   className,
 }) => {
-  const {
-    control,
-    formState: { errors },
-  } = useFormContext();
-  const [documents, setDocuments] = useState<Array<{ id: string; data: any }>>([]);
-  const [loading, setLoading] = useState(true);
+  const { control } = useFormContext();
+  const [documents, setDocuments] = React.useState<
+    Array<{ id: string; data: Record<string, unknown> }>
+  >([]);
+  const [loading, setLoading] = React.useState(true);
 
-  useEffect(() => {
-    const loadDocuments = async () => {
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
       try {
-        const collectionRef = collection(firestore, collectionName);
-        const q =
-          queryConstraints.length > 0 ? query(collectionRef, ...queryConstraints) : collectionRef;
-
-        const snapshot = await getDocs(q);
-        const docs = snapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }));
-
-        setDocuments(docs);
-      } catch (error) {
-        console.error('Error loading documents:', error);
+        const ref = collection(firestore, collectionName);
+        const q = queryConstraints.length ? query(ref, ...queryConstraints) : ref;
+        const snap = await getDocs(q);
+        if (cancelled) return;
+        setDocuments(
+          snap.docs.map((d) => ({ id: d.id, data: d.data() as Record<string, unknown> })),
+        );
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-
-    loadDocuments();
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [firestore, collectionName, queryConstraints]);
 
   return (
     <div className={className}>
       {label && (
-        <Label htmlFor={name} required={required}>
+        <Label htmlFor={name}>
           {label}
+          {required && <span className="ml-0.5 text-destructive">*</span>}
         </Label>
       )}
-      {description && <Description>{description}</Description>}
-
+      {description && <p className="text-sm text-muted-foreground">{description}</p>}
       <Controller
         name={name}
         control={control}
         render={({ field }) => (
           <Select
-            {...field}
-            id={name}
+            value={(field.value as string | undefined) ?? undefined}
+            onValueChange={(v) => field.onChange(v)}
             disabled={disabled || loading}
-            error={errors[name] as FieldError | undefined}
-            options={documents.map(doc => ({
-              value: doc.id,
-              label: doc.data[displayField] || doc.id,
-            }))}
-            emptyOption={placeholder}
-          />
+            name={name}
+          >
+            <SelectTrigger id={name}>
+              <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+              {documents.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {String(d.data[displayField] ?? d.id)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
       />
-
-      {errors[name] && <ErrorMessage>{(errors[name] as any)?.message}</ErrorMessage>}
     </div>
   );
 };
 
-// Server Timestamp Field
 interface ServerTimestampFieldProps extends BaseFieldProps {
   showCurrentTime?: boolean;
   format?: (date: Date) => string;
 }
 
+/**
+ * Placeholder UI for a field whose value is a Firestore serverTimestamp().
+ * Doesn't bind to react-hook-form — the actual server timestamp is applied at
+ * save time by useFirestoreForm.
+ */
 export const ServerTimestampField: React.FC<ServerTimestampFieldProps> = ({
   name,
   label,
   description,
   showCurrentTime = true,
-  format = date => date.toLocaleString(),
+  format = (d) => d.toLocaleString(),
   className,
 }) => {
-  const { control } = useFormContext();
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [now, setNow] = React.useState(() => new Date());
 
-  useEffect(() => {
-    if (showCurrentTime) {
-      const interval = setInterval(() => {
-        setCurrentTime(new Date());
-      }, 1000);
-      return () => clearInterval(interval);
-    }
+  React.useEffect(() => {
+    if (!showCurrentTime) return undefined;
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
   }, [showCurrentTime]);
 
   return (
-    <div className={className}>
-      {label && <Label htmlFor={name}>{label}</Label>}
-      {description && <Description>{description}</Description>}
-
-      <Controller
-        name={name}
-        control={control}
-        defaultValue={null}
-        render={() => (
-          <div className="p-3 bg-gray-900 rounded-md text-gray-300">
-            {showCurrentTime ? (
-              <>
-                <div className="text-sm text-gray-500">Will be set to:</div>
-                <div className="font-mono">{format(currentTime)}</div>
-              </>
-            ) : (
-              <div className="text-sm text-gray-500">Will be set to server timestamp on save</div>
-            )}
+    <div className={className} data-field={name}>
+      {label && <Label>{label}</Label>}
+      {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      <div className="rounded-md border bg-muted p-3 text-sm">
+        {showCurrentTime ? (
+          <>
+            <div className="text-xs text-muted-foreground">Will be set to:</div>
+            <div className="font-mono">{format(now)}</div>
+          </>
+        ) : (
+          <div className="text-xs text-muted-foreground">
+            Will be set to server timestamp on save
           </div>
         )}
-      />
+      </div>
     </div>
   );
 };
 
-// GeoPoint Field
 interface GeoPointFieldProps extends BaseFieldProps {
   defaultLat?: number;
   defaultLng?: number;
@@ -175,43 +181,31 @@ export const GeoPointField: React.FC<GeoPointFieldProps> = ({
   enableGeolocation = true,
   className,
 }) => {
-  const {
-    control,
-    formState: { errors },
-    setValue,
-  } = useFormContext();
-  const [gettingLocation, setGettingLocation] = useState(false);
+  const { control, setValue } = useFormContext();
+  const [busy, setBusy] = React.useState(false);
 
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
-      return;
-    }
-
-    setGettingLocation(true);
+  const useCurrent = () => {
+    if (!navigator.geolocation) return;
+    setBusy(true);
     navigator.geolocation.getCurrentPosition(
-      position => {
-        setValue(`${name}.latitude`, position.coords.latitude);
-        setValue(`${name}.longitude`, position.coords.longitude);
-        setGettingLocation(false);
+      (pos) => {
+        setValue(`${name}.latitude`, pos.coords.latitude);
+        setValue(`${name}.longitude`, pos.coords.longitude);
+        setBusy(false);
       },
-      error => {
-        console.error('Error getting location:', error);
-        alert('Unable to retrieve your location');
-        setGettingLocation(false);
-      }
+      () => setBusy(false),
     );
   };
 
   return (
-    <div className={className}>
+    <div className={className} data-field={name}>
       {label && (
-        <Label htmlFor={name} required={required}>
+        <Label>
           {label}
+          {required && <span className="ml-0.5 text-destructive">*</span>}
         </Label>
       )}
-      {description && <Description>{description}</Description>}
-
+      {description && <p className="text-sm text-muted-foreground">{description}</p>}
       <div className="space-y-2">
         <Controller
           name={`${name}.latitude`}
@@ -224,11 +218,10 @@ export const GeoPointField: React.FC<GeoPointFieldProps> = ({
               step="any"
               placeholder="Latitude"
               disabled={disabled}
-              error={errors[name] ? (errors[name] as any).latitude : undefined}
+              onChange={(e) => field.onChange(Number(e.target.value))}
             />
           )}
         />
-
         <Controller
           name={`${name}.longitude`}
           control={control}
@@ -240,35 +233,31 @@ export const GeoPointField: React.FC<GeoPointFieldProps> = ({
               step="any"
               placeholder="Longitude"
               disabled={disabled}
-              error={errors[name] ? (errors[name] as any).longitude : undefined}
+              onChange={(e) => field.onChange(Number(e.target.value))}
             />
           )}
         />
-
         {enableGeolocation && (
-          <button
+          <Button
             type="button"
-            onClick={getCurrentLocation}
-            disabled={disabled || gettingLocation}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            variant="outline"
+            size="sm"
+            onClick={useCurrent}
+            disabled={disabled || busy}
           >
-            {gettingLocation ? 'Getting location...' : 'Use Current Location'}
-          </button>
+            {busy ? 'Getting location…' : 'Use current location'}
+          </Button>
         )}
       </div>
-
-      {errors[name] && <ErrorMessage>{(errors[name] as any)?.message}</ErrorMessage>}
     </div>
   );
 };
 
-// Firebase Storage Field
 interface FirebaseStorageFieldProps extends BaseFieldProps {
   storage: FirebaseStorage;
   path: string;
   accept?: string;
   maxSize?: number;
-  showPreview?: boolean;
   multiple?: boolean;
 }
 
@@ -282,105 +271,67 @@ export const FirebaseStorageField: React.FC<FirebaseStorageFieldProps> = ({
   path,
   accept,
   maxSize,
-  showPreview = true,
   multiple = false,
   className,
 }) => {
   const { control, setValue, watch } = useFormContext();
-  const fieldValue = watch(name);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const value = watch(name);
 
   const { upload, uploading, progress } = useFirebaseStorageUpload({
     storage,
     path,
-    onComplete: url => {
+    onComplete: (url) => {
       if (multiple) {
-        const currentUrls = fieldValue || [];
-        setValue(name, [...currentUrls, url]);
+        const current = (value as string[] | undefined) ?? [];
+        setValue(name, [...current, url]);
       } else {
         setValue(name, url);
       }
     },
   });
 
-  const handleFileChange = async (files: FileList | File[] | null) => {
-    if (!files || files.length === 0) return;
-
-    const fileArray = Array.from(files);
-
-    // Generate previews
-    if (showPreview) {
-      const newPreviews = await Promise.all(
-        fileArray.map(file => {
-          return new Promise<string>(resolve => {
-            if (file.type.startsWith('image/')) {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(file);
-            } else {
-              resolve('');
-            }
-          });
-        })
-      );
-      setPreviews(newPreviews.filter(Boolean));
-    }
-
-    // Upload files
-    for (const file of fileArray) {
-      await upload(file);
+  const handleFiles = async (files: File | File[] | null) => {
+    if (!files) return;
+    const arr = Array.isArray(files) ? files : [files];
+    for (const f of arr) {
+      await upload(f);
     }
   };
 
   return (
-    <div className={className}>
+    <div className={className} data-field={name}>
       {label && (
-        <Label htmlFor={name} required={required}>
+        <Label>
           {label}
+          {required && <span className="ml-0.5 text-destructive">*</span>}
         </Label>
       )}
-      {description && <Description>{description}</Description>}
-
+      {description && <p className="text-sm text-muted-foreground">{description}</p>}
       <Controller
         name={name}
         control={control}
-        render={({ field: { onChange, value, ...field } }) => (
+        render={() => (
           <div className="space-y-2">
             <FileUpload
-              {...field}
-              onChange={handleFileChange}
               accept={accept}
+              maxSize={maxSize}
               multiple={multiple}
               disabled={disabled || uploading}
+              onChange={(files) => void handleFiles(files)}
             />
-
             {uploading && (
               <div className="space-y-1">
-                <div className="text-sm text-gray-500">Uploading...</div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
+                <div className="text-sm text-muted-foreground">Uploading…</div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all"
-                    style={{ '--progress': `${progress}%`, width: 'var(--progress)' } as React.CSSProperties}
+                    className="h-2 rounded-full bg-primary transition-all"
+                    style={{ width: `${progress}%` }}
                   />
                 </div>
               </div>
             )}
-
-            {showPreview && previews.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {previews.map((preview, index) => (
-                  <img
-                    key={index}
-                    src={preview}
-                    alt={`Preview ${index + 1}`}
-                    className="w-full h-24 object-cover rounded-md"
-                  />
-                ))}
-              </div>
-            )}
-
             {value && !uploading && (
-              <div className="text-sm text-green-500">✓ File uploaded successfully</div>
+              <p className="text-sm text-muted-foreground">File uploaded successfully.</p>
             )}
           </div>
         )}

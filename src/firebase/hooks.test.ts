@@ -1,263 +1,197 @@
-import { renderHook, act } from '@testing-library/react';
-import { useFirestoreForm, useFirebaseStorageUpload } from './hooks';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { z } from 'zod';
-import { Firestore } from 'firebase/firestore';
-import { FirebaseStorage } from 'firebase/storage';
 
-// Mock Firebase
-jest.mock('firebase/firestore', () => ({
-  doc: jest.fn(),
-  onSnapshot: jest.fn(() => jest.fn()), // Returns unsubscribe function
-  setDoc: jest.fn(),
-  updateDoc: jest.fn(),
-  addDoc: jest.fn(() => Promise.resolve({ id: 'test-doc-id' })), // Mock successful addDoc
-  collection: jest.fn(),
-  serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP'),
+vi.mock('firebase/firestore', () => ({
+  doc: vi.fn(),
+  onSnapshot: vi.fn(() => vi.fn()),
+  setDoc: vi.fn(),
+  updateDoc: vi.fn(),
+  addDoc: vi.fn(() => Promise.resolve({ id: 'doc-1' })),
+  collection: vi.fn(),
+  getDoc: vi.fn(),
+  serverTimestamp: vi.fn(() => 'SERVER_TS'),
   Timestamp: {
-    fromDate: jest.fn(date => ({ toDate: () => date })),
+    fromDate: (d: Date) => ({ toDate: () => d }),
   },
 }));
 
-jest.mock('firebase/storage', () => ({
-  ref: jest.fn(),
-  uploadBytesResumable: jest.fn(),
-  getDownloadURL: jest.fn(),
+vi.mock('firebase/storage', () => ({
+  ref: vi.fn(),
+  uploadBytesResumable: vi.fn(),
+  getDownloadURL: vi.fn(),
 }));
 
-describe('Firebase Hooks', () => {
-  describe('useFirestoreForm', () => {
-    const mockFirestore = {} as Firestore;
-    const testSchema = z.object({
-      name: z.string(),
-      email: z.string().email(),
-      age: z.number(),
-    });
+import { useFirestoreForm, useFirebaseStorageUpload } from './hooks';
+import type { Firestore } from 'firebase/firestore';
+import type { FirebaseStorage } from 'firebase/storage';
 
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
+describe('useFirestoreForm', () => {
+  const schema = z.object({ name: z.string(), age: z.number() });
 
-    it('should initialize with loading state when documentId is provided', () => {
-      const { result } = renderHook(() =>
-        useFirestoreForm({
-          schema: testSchema,
-          firestore: mockFirestore,
-          collection: 'users',
-          documentId: 'test-123',
-        })
-      );
-
-      expect(result.current.loading).toBe(true);
-      expect(result.current.saving).toBe(false);
-      expect(result.current.error).toBe(null);
-    });
-
-    it('should handle form submission and save to Firestore', async () => {
-      const onSuccess = jest.fn();
-      const { result } = renderHook(() =>
-        useFirestoreForm({
-          schema: testSchema,
-          firestore: mockFirestore,
-          collection: 'users',
-          onSuccess,
-        })
-      );
-
-      const testData = {
-        name: 'John Doe',
-        email: 'john@example.com',
-        age: 30,
-      };
-
-      await act(async () => {
-        await result.current.saveToFirestore(testData);
-      });
-
-      expect(onSuccess).toHaveBeenCalledWith(testData);
-    });
-
-    it('should include metadata when includeMetadata is true', async () => {
-      const { result } = renderHook(() =>
-        useFirestoreForm({
-          schema: testSchema,
-          firestore: mockFirestore,
-          collection: 'users',
-          includeMetadata: true,
-          user: { uid: 'user-123' } as any,
-        })
-      );
-
-      await act(async () => {
-        await result.current.saveToFirestore({
-          name: 'John',
-          email: 'john@example.com',
-          age: 25,
-        });
-      });
-
-      // Verify metadata was included in the save
-      expect(result.current.saving).toBe(false);
-    });
-
-    it('should handle errors gracefully', async () => {
-      const onError = jest.fn();
-      const mockError = new Error('Save failed');
-
-      // Mock addDoc to throw an error
-      const { addDoc } = require('firebase/firestore');
-      addDoc.mockRejectedValueOnce(mockError);
-
-      const { result } = renderHook(() =>
-        useFirestoreForm({
-          schema: testSchema,
-          firestore: mockFirestore,
-          collection: 'users',
-          onError,
-        })
-      );
-
-      await act(async () => {
-        try {
-          await result.current.saveToFirestore({
-            name: 'John',
-            email: 'john@example.com',
-            age: 25,
-          });
-        } catch (error) {
-          // Expected error
-        }
-      });
-
-      expect(onError).toHaveBeenCalledWith(mockError);
-      expect(result.current.error).toBe(mockError);
-    });
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  describe('useFirebaseStorageUpload', () => {
-    const mockStorage = {} as FirebaseStorage;
+  it('initializes loading=false when no document id is provided', () => {
+    const { result } = renderHook(() =>
+      useFirestoreForm({ schema, firestore: {} as Firestore, collection: 'users' }),
+    );
+    expect(result.current.loading).toBe(false);
+    expect(result.current.saving).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
 
-    beforeEach(() => {
-      jest.clearAllMocks();
+  it('initializes loading=true when a documentId is supplied', () => {
+    const { result } = renderHook(() =>
+      useFirestoreForm({
+        schema,
+        firestore: {} as Firestore,
+        collection: 'users',
+        documentId: 'x',
+      }),
+    );
+    expect(result.current.loading).toBe(true);
+  });
+
+  it('saveToFirestore creates a new doc via addDoc and remembers its id', async () => {
+    const onSuccess = vi.fn();
+    const { result } = renderHook(() =>
+      useFirestoreForm({
+        schema,
+        firestore: {} as Firestore,
+        collection: 'users',
+        onSuccess,
+        includeMetadata: false,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.saveToFirestore({ name: 'A', age: 1 });
     });
 
-    it('should initialize with default state', () => {
-      const { result } = renderHook(() =>
-        useFirebaseStorageUpload({
-          storage: mockStorage,
-          path: 'uploads',
-        })
-      );
+    const { addDoc } = await import('firebase/firestore');
+    expect(addDoc).toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledWith({ name: 'A', age: 1 });
+    await waitFor(() => expect(result.current.documentId).toBe('doc-1'));
+  });
 
-      expect(result.current.uploading).toBe(false);
-      expect(result.current.progress).toBe(0);
-      expect(result.current.downloadURL).toBe(null);
-      expect(result.current.error).toBe(null);
+  it('saveToFirestore stamps metadata when includeMetadata is true', async () => {
+    const { result } = renderHook(() =>
+      useFirestoreForm({
+        schema,
+        firestore: {} as Firestore,
+        collection: 'users',
+        includeMetadata: true,
+        user: { uid: 'u-1' } as never,
+      }),
+    );
+    await act(async () => {
+      await result.current.saveToFirestore({ name: 'A', age: 1 });
     });
+    const { addDoc } = await import('firebase/firestore');
+    const call = (addDoc as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call?.[1]?._metadata?.createdBy).toBe('u-1');
+  });
 
-    it('should handle file upload', async () => {
-      const onComplete = jest.fn();
-      const mockFile = new File(['test'], 'test.txt', { type: 'text/plain' });
-      const mockURL = 'https://example.com/file.txt';
+  it('saveToFirestore throws if neither collection nor documentRef is provided', async () => {
+    const onError = vi.fn();
+    const { result } = renderHook(() =>
+      useFirestoreForm({ schema, firestore: {} as Firestore, onError, includeMetadata: false }),
+    );
+    await expect(
+      act(async () => {
+        await result.current.saveToFirestore({ name: 'A', age: 1 });
+      }),
+    ).rejects.toThrow(/collection.*documentRef/);
+    expect(onError).toHaveBeenCalled();
+  });
+});
 
-      // Mock upload task
-      const mockUploadTask = {
-        on: jest.fn((event, ...handlers) => {
-          // Simulate successful upload
-          setTimeout(() => {
-            handlers[2](); // Call complete handler
-          }, 0);
-        }),
-        snapshot: { ref: {} },
-      };
+describe('useFirebaseStorageUpload', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-      const { ref, uploadBytesResumable, getDownloadURL } = require('firebase/storage');
-      ref.mockReturnValue({});
-      uploadBytesResumable.mockReturnValue(mockUploadTask);
-      getDownloadURL.mockResolvedValue(mockURL);
+  it('reports default state', () => {
+    const { result } = renderHook(() =>
+      useFirebaseStorageUpload({ storage: {} as FirebaseStorage, path: 'uploads' }),
+    );
+    expect(result.current.uploading).toBe(false);
+    expect(result.current.progress).toBe(0);
+    expect(result.current.downloadURL).toBeNull();
+  });
 
-      const { result } = renderHook(() =>
-        useFirebaseStorageUpload({
-          storage: mockStorage,
-          path: 'uploads',
-          onComplete,
-        })
-      );
-
-      await act(async () => {
-        await result.current.upload(mockFile);
-        // Wait for async operations
-        await new Promise(resolve => setTimeout(resolve, 10));
-      });
-
-      expect(onComplete).toHaveBeenCalledWith(mockURL);
+  it('completes upload and fires onComplete with the URL', async () => {
+    const onComplete = vi.fn();
+    const fakeUrl = 'https://example.com/x.txt';
+    const { uploadBytesResumable, getDownloadURL } = await import('firebase/storage');
+    (uploadBytesResumable as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      on: (_evt: string, _onProgress: unknown, _onError: unknown, onDone: () => void) => {
+        setTimeout(onDone, 0);
+      },
+      snapshot: { ref: {} },
     });
+    (getDownloadURL as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(fakeUrl);
 
-    it('should track upload progress', async () => {
-      const onProgress = jest.fn();
-      const mockFile = new File(['test'], 'test.txt', { type: 'text/plain' });
+    const { result } = renderHook(() =>
+      useFirebaseStorageUpload({ storage: {} as FirebaseStorage, path: 'uploads', onComplete }),
+    );
 
-      // Mock upload task with progress
-      const mockUploadTask = {
-        on: jest.fn((event, ...handlers) => {
-          // Simulate progress updates
-          handlers[0]({
-            bytesTransferred: 50,
-            totalBytes: 100,
-          });
-        }),
-        snapshot: { ref: {} },
-      };
-
-      const { uploadBytesResumable } = require('firebase/storage');
-      uploadBytesResumable.mockReturnValue(mockUploadTask);
-
-      const { result } = renderHook(() =>
-        useFirebaseStorageUpload({
-          storage: mockStorage,
-          path: 'uploads',
-          onProgress,
-        })
-      );
-
-      await act(async () => {
-        result.current.upload(mockFile);
-      });
-
-      expect(onProgress).toHaveBeenCalledWith(50);
-      expect(result.current.progress).toBe(50);
+    await act(async () => {
+      await result.current.upload(new File(['x'], 'a.txt'));
     });
+    expect(onComplete).toHaveBeenCalledWith(fakeUrl);
+  });
 
-    it('should handle upload errors', async () => {
-      const onError = jest.fn();
-      const mockError = new Error('Upload failed');
-      const mockFile = new File(['test'], 'test.txt', { type: 'text/plain' });
-
-      // Mock upload task with error
-      const mockUploadTask = {
-        on: jest.fn((event, ...handlers) => {
-          // Simulate error
-          handlers[1](mockError);
-        }),
-      };
-
-      const { uploadBytesResumable } = require('firebase/storage');
-      uploadBytesResumable.mockReturnValue(mockUploadTask);
-
-      const { result } = renderHook(() =>
-        useFirebaseStorageUpload({
-          storage: mockStorage,
-          path: 'uploads',
-          onError,
-        })
-      );
-
-      await act(async () => {
-        result.current.upload(mockFile);
-      });
-
-      expect(onError).toHaveBeenCalledWith(mockError);
-      expect(result.current.error).toBe(mockError);
-      expect(result.current.uploading).toBe(false);
+  it('tracks progress callbacks', async () => {
+    const onProgress = vi.fn();
+    const { uploadBytesResumable, getDownloadURL } = await import('firebase/storage');
+    (uploadBytesResumable as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      on: (
+        _evt: string,
+        onProgressCb: (snap: { bytesTransferred: number; totalBytes: number }) => void,
+        _onError: unknown,
+        onDone: () => void,
+      ) => {
+        onProgressCb({ bytesTransferred: 50, totalBytes: 100 });
+        setTimeout(onDone, 0);
+      },
+      snapshot: { ref: {} },
     });
+    (getDownloadURL as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      'https://example.com/x',
+    );
+    const { result } = renderHook(() =>
+      useFirebaseStorageUpload({ storage: {} as FirebaseStorage, path: 'uploads', onProgress }),
+    );
+    await act(async () => {
+      await result.current.upload(new File(['x'], 'a.txt'));
+    });
+    expect(onProgress).toHaveBeenCalledWith(50);
+  });
+
+  it('surfaces upload errors', async () => {
+    const onError = vi.fn();
+    const err = new Error('boom');
+    const { uploadBytesResumable } = await import('firebase/storage');
+    (uploadBytesResumable as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      on: (_evt: string, _onProgress: unknown, onErrorCb: (e: Error) => void) => {
+        onErrorCb(err);
+      },
+      snapshot: { ref: {} },
+    });
+    const { result } = renderHook(() =>
+      useFirebaseStorageUpload({ storage: {} as FirebaseStorage, path: 'uploads', onError }),
+    );
+    await act(async () => {
+      try {
+        await result.current.upload(new File(['x'], 'a.txt'));
+      } catch {
+        // expected reject
+      }
+    });
+    expect(onError).toHaveBeenCalledWith(err);
+    expect(result.current.error).toBe(err);
   });
 });

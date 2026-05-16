@@ -1,30 +1,44 @@
-import { useForm, UseFormProps, UseFormReturn, DefaultValues } from 'react-hook-form';
+import { useCallback, useMemo } from 'react';
+import {
+  type DefaultValues,
+  type Resolver,
+  useForm,
+  type UseFormProps,
+  type UseFormReturn,
+} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMemo, useCallback } from 'react';
-import { ZodFormConfig, FormData, FieldAnalysis, SchemaAnalysis } from '../types';
 import {
-  parseSchema,
   analyzeSchema,
   generateDefaultValues,
+  getObjectShape,
+  parseSchema,
   validateWithSchema,
 } from '../utils/schema-parser';
+import type { FieldAnalysis, SchemaAnalysis } from '../types';
 
-interface UseZodFormOptions<T extends z.ZodTypeAny>
-  extends Omit<UseFormProps<FormData<T>>, 'resolver'> {
+// Internally we always work in `Record<string, unknown>` because `z.infer<T>`
+// of an arbitrary ZodTypeAny widens to `unknown`, which isn't a `FieldValues`.
+// At the public boundary, consumers' `onSubmit` callback gets `z.infer<T>`.
+export type FormValues = Record<string, unknown>;
+
+interface UseZodFormOptions<T extends z.ZodTypeAny> extends Omit<
+  UseFormProps<FormValues>,
+  'resolver'
+> {
   schema: T;
-  onSubmit?: (data: FormData<T>) => void | Promise<void>;
-  onError?: (errors: any) => void;
+  onSubmit?: (data: z.infer<T>) => void | Promise<void>;
+  onError?: (errors: unknown) => void;
 }
 
-interface UseZodFormReturn<T extends z.ZodTypeAny> extends UseFormReturn<FormData<T>> {
+export interface UseZodFormReturn<T extends z.ZodTypeAny> extends UseFormReturn<FormValues> {
   schema: T;
   fields: Record<string, FieldAnalysis>;
   schemaAnalysis: SchemaAnalysis;
   isSubmitting: boolean;
   submitForm: (e?: React.FormEvent) => Promise<void>;
   resetForm: () => void;
-  validateField: (name: string, value: any) => Promise<string | undefined>;
+  validateField: (name: string, value: unknown) => Promise<string | undefined>;
   getFieldConfig: (name: string) => FieldAnalysis | undefined;
 }
 
@@ -36,22 +50,20 @@ export function useZodForm<T extends z.ZodTypeAny>({
   mode = 'onChange',
   ...formOptions
 }: UseZodFormOptions<T>): UseZodFormReturn<T> {
-  // Generate default values from schema if not provided
-  const computedDefaultValues = useMemo(() => {
+  const computedDefaults = useMemo(() => {
     if (defaultValues) return defaultValues;
     return generateDefaultValues(schema);
   }, [schema, defaultValues]);
 
-  // Parse schema into field definitions
   const fields = useMemo(() => parseSchema(schema), [schema]);
-
-  // Analyze schema complexity and features
   const schemaAnalysis = useMemo(() => analyzeSchema(schema), [schema]);
 
-  // Initialize React Hook Form with Zod resolver
-  const form = useForm<FormData<T>>({
-    resolver: zodResolver(schema),
-    defaultValues: computedDefaultValues as DefaultValues<FormData<T>>,
+  const form = useForm<FormValues>({
+    // zodResolver's signature is parametric on the schema's input/output. We
+    // accept any ZodTypeAny upstream, so we erase the schema type at the
+    // resolver boundary — runtime parsing is what's load-bearing.
+    resolver: zodResolver(schema as Parameters<typeof zodResolver>[0]) as Resolver<FormValues>,
+    defaultValues: computedDefaults as DefaultValues<FormValues>,
     mode,
     ...formOptions,
   });
@@ -60,67 +72,43 @@ export function useZodForm<T extends z.ZodTypeAny>({
     handleSubmit,
     formState: { isSubmitting },
     reset,
-    trigger,
-    getValues,
   } = form;
 
-  // Submit handler
   const submitForm = useCallback(
     async (e?: React.FormEvent) => {
-      if (e) {
-        e.preventDefault();
-      }
-
+      if (e) e.preventDefault();
       await handleSubmit(
-        async data => {
+        async (data) => {
           try {
-            await onSubmit?.(data);
-          } catch (error) {
-            console.error('Form submission error:', error);
-            onError?.(error);
+            await onSubmit?.(data as z.infer<T>);
+          } catch (err) {
+            onError?.(err);
           }
         },
-        errors => {
-          onError?.(errors);
-        }
+        (errors) => onError?.(errors),
       )();
     },
-    [handleSubmit, onSubmit, onError]
+    [handleSubmit, onSubmit, onError],
   );
 
-  // Reset form to default values
   const resetForm = useCallback(() => {
-    reset(computedDefaultValues);
-  }, [reset, computedDefaultValues]);
+    reset(computedDefaults as DefaultValues<FormValues>);
+  }, [reset, computedDefaults]);
 
-  // Validate individual field
   const validateField = useCallback(
-    async (name: string, value: any): Promise<string | undefined> => {
-      try {
-        // Get the field's schema
-        const fieldSchema = getFieldSchema(schema, name);
-        if (!fieldSchema) return undefined;
-
-        // Validate the value
-        const result = validateWithSchema(fieldSchema, value);
-        if (!result.success && result.errors.length > 0) {
-          return result.errors[0].message;
-        }
-
-        return undefined;
-      } catch (error) {
-        return 'Validation error';
-      }
+    async (name: string, value: unknown): Promise<string | undefined> => {
+      const fieldSchema = getObjectShape(schema)[name];
+      if (!fieldSchema) return undefined;
+      const result = validateWithSchema(fieldSchema, value);
+      if (!result.success && result.errors.length) return result.errors[0]?.message;
+      return undefined;
     },
-    [schema]
+    [schema],
   );
 
-  // Get field configuration
   const getFieldConfig = useCallback(
-    (name: string): FieldAnalysis | undefined => {
-      return fields[name];
-    },
-    [fields]
+    (name: string): FieldAnalysis | undefined => fields[name],
+    [fields],
   );
 
   return {
@@ -136,109 +124,89 @@ export function useZodForm<T extends z.ZodTypeAny>({
   };
 }
 
-// Helper function to extract field schema from object schema
-function getFieldSchema(schema: z.ZodTypeAny, fieldName: string): z.ZodTypeAny | undefined {
-  if (schema instanceof z.ZodObject) {
-    const shape = schema._def.shape();
-    return shape[fieldName];
-  }
-  return undefined;
-}
-
-// Hook for conditional field visibility
 export function useConditionalFields(
   fields: Record<string, FieldAnalysis>,
-  formValues: Record<string, any>
+  formValues: Record<string, unknown>,
 ) {
   return useMemo(() => {
-    const visibleFields: Record<string, boolean> = {};
-
-    Object.entries(fields).forEach(([name, field]) => {
-      if (!field.config.showWhen) {
-        visibleFields[name] = true;
-        return;
+    const visible: Record<string, boolean> = {};
+    for (const [name, field] of Object.entries(fields)) {
+      const cond = field.config.showWhen;
+      if (!cond) {
+        visible[name] = true;
+        continue;
       }
-
-      const {
-        field: dependentField,
-        value: expectedValue,
-        operator = 'equals',
-      } = field.config.showWhen;
-      const actualValue = formValues[dependentField];
-
-      let isVisible = false;
-
-      switch (operator) {
+      const actual = formValues[cond.field];
+      const expected = cond.value;
+      switch (cond.operator ?? 'equals') {
         case 'equals':
-          isVisible = actualValue === expectedValue;
+          visible[name] = actual === expected;
           break;
         case 'not-equals':
-          isVisible = actualValue !== expectedValue;
+          visible[name] = actual !== expected;
           break;
         case 'contains':
-          isVisible = Array.isArray(actualValue)
-            ? actualValue.includes(expectedValue)
-            : String(actualValue).includes(String(expectedValue));
+          visible[name] = Array.isArray(actual)
+            ? actual.includes(expected)
+            : String(actual).includes(String(expected));
           break;
         case 'greater-than':
-          isVisible = Number(actualValue) > Number(expectedValue);
+          visible[name] = Number(actual) > Number(expected);
           break;
         case 'less-than':
-          isVisible = Number(actualValue) < Number(expectedValue);
+          visible[name] = Number(actual) < Number(expected);
           break;
         default:
-          isVisible = true;
+          visible[name] = true;
       }
-
-      visibleFields[name] = isVisible;
-    });
-
-    return visibleFields;
+    }
+    return visible;
   }, [fields, formValues]);
 }
 
-// Hook for managing array fields
-export function useArrayField<T = any>(name: string, form: UseFormReturn<any>) {
-  const { control, getValues, setValue, trigger } = form;
+export function useArrayField<T extends Record<string, unknown> = Record<string, unknown>>(
+  name: string,
+  form: UseFormReturn<FormValues>,
+) {
+  const { getValues, setValue, trigger } = form;
 
   const append = useCallback(
     (value: T) => {
-      const currentValues = getValues(name) || [];
-      const newValues = [...currentValues, value];
-      setValue(name, newValues);
-      trigger(name);
+      const current = (getValues(name) as T[] | undefined) ?? [];
+      setValue(name, [...current, value]);
+      void trigger(name);
     },
-    [name, getValues, setValue, trigger]
+    [name, getValues, setValue, trigger],
   );
 
   const remove = useCallback(
     (index: number) => {
-      const currentValues = getValues(name) || [];
-      const newValues = currentValues.filter((_: any, i: number) => i !== index);
-      setValue(name, newValues);
-      trigger(name);
+      const current = (getValues(name) as T[] | undefined) ?? [];
+      setValue(
+        name,
+        current.filter((_, i) => i !== index),
+      );
+      void trigger(name);
     },
-    [name, getValues, setValue, trigger]
+    [name, getValues, setValue, trigger],
   );
 
   const move = useCallback(
     (from: number, to: number) => {
-      const currentValues = getValues(name) || [];
-      const newValues = [...currentValues];
-      const [movedItem] = newValues.splice(from, 1);
-      newValues.splice(to, 0, movedItem);
-      setValue(name, newValues);
-      trigger(name);
+      const current = (getValues(name) as T[] | undefined) ?? [];
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      if (moved !== undefined) next.splice(to, 0, moved);
+      setValue(name, next);
+      void trigger(name);
     },
-    [name, getValues, setValue, trigger]
+    [name, getValues, setValue, trigger],
   );
 
-  const items = getValues(name) || [];
+  const items = ((getValues(name) as T[] | undefined) ?? []).map((item, index) => ({
+    id: `${name}-${index}`,
+    ...item,
+  }));
 
-  return {
-    items: items.map((item: T, index: number) => ({ id: `${name}-${index}`, ...item })),
-    append,
-    remove,
-    move,
-  };
+  return { items, append, remove, move };
 }

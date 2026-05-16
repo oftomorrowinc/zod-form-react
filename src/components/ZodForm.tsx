@@ -1,60 +1,251 @@
-import React, { useMemo } from 'react';
-import { Controller, Path, FieldErrors } from 'react-hook-form';
-import { z } from 'zod';
-import { ZodFormConfig, FormData, FieldType, Theme } from '../types';
-import { useZodForm, useConditionalFields, useArrayField } from '../hooks/useZodForm';
-import { cn, themeClasses, getThemeClasses } from '../utils/cn';
-
-// Import all UI components
+import * as React from 'react';
 import {
-  Label,
-  ErrorMessage,
-  Description,
-  Input,
-  Textarea,
-  Select,
-  Checkbox,
-  RadioGroup,
+  Controller,
+  type ControllerRenderProps,
+  type FieldErrors,
+  type FieldValues,
+  FormProvider,
+  type UseFormReturn,
+} from 'react-hook-form';
+import { z } from 'zod';
+import {
+  type FormValues,
+  useArrayField,
+  useConditionalFields,
+  useZodForm,
+} from '../hooks/useZodForm';
+import { getObjectShape } from '../utils/schema-parser';
+import type { FieldConfig, FieldType, FormData, ZodFormConfig } from '../types';
+import { cn } from '../utils/cn';
+import {
   Button,
-  Switch,
-  StarRating,
+  Checkbox,
   FileUpload,
+  FormControl,
+  FormDescription,
+  FormItem,
+  FormLabel,
+  Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StarRating,
+  Switch,
+  Textarea,
 } from './ui';
-
 import { ArrayField, ObjectField } from './fields';
 
-interface ZodFormProps<T extends z.ZodTypeAny> extends ZodFormConfig {
+export interface ZodFormProps<T extends z.ZodTypeAny> extends ZodFormConfig {
   schema: T;
   className?: string;
   children?: React.ReactNode;
   onSubmit: (data: FormData<T>) => void | Promise<void>;
 }
 
+type FieldRenderProps = {
+  name: string;
+  config: FieldConfig;
+  field: ControllerRenderProps<FieldValues, string>;
+  disabled?: boolean;
+};
+
+const numericChange = (raw: string): number | undefined => {
+  if (raw === '') return undefined;
+  const n = Number(raw);
+  return Number.isNaN(n) ? undefined : n;
+};
+
+const dateToInputValue = (v: unknown): string => {
+  if (v instanceof Date && !Number.isNaN(v.valueOf())) return v.toISOString().slice(0, 10);
+  if (typeof v === 'string') return v;
+  return '';
+};
+
+const renderForType = (type: FieldType, p: FieldRenderProps): React.ReactNode => {
+  const { field, config, disabled } = p;
+  const sharedInputProps = {
+    name: field.name,
+    onBlur: field.onBlur,
+    disabled: disabled ?? config.disabled,
+    placeholder: config.placeholder,
+  };
+
+  switch (type) {
+    case 'text':
+    case 'email':
+    case 'password':
+    case 'url':
+    case 'tel':
+      return (
+        <Input
+          {...sharedInputProps}
+          type={type}
+          value={(field.value as string | number | undefined) ?? ''}
+          onChange={(e) => field.onChange(e.target.value)}
+          minLength={config.minLength}
+          maxLength={config.maxLength}
+          pattern={config.pattern}
+        />
+      );
+    case 'number':
+      return (
+        <Input
+          {...sharedInputProps}
+          type="number"
+          value={(field.value as number | undefined) ?? ''}
+          onChange={(e) => field.onChange(numericChange(e.target.value))}
+          min={config.min}
+          max={config.max}
+          step={config.step}
+        />
+      );
+    case 'range':
+      return (
+        <div className="space-y-1">
+          <Input
+            {...sharedInputProps}
+            type="range"
+            value={(field.value as number | undefined) ?? config.min ?? 0}
+            onChange={(e) => field.onChange(numericChange(e.target.value))}
+            min={config.min}
+            max={config.max}
+            step={config.step ?? 1}
+          />
+          <p className="text-center text-xs text-muted-foreground">
+            {(field.value as number | undefined) ?? config.min ?? 0}
+          </p>
+        </div>
+      );
+    case 'textarea':
+      return (
+        <Textarea
+          {...sharedInputProps}
+          value={(field.value as string | undefined) ?? ''}
+          onChange={(e) => field.onChange(e.target.value)}
+          rows={config.rows ?? 4}
+          minLength={config.minLength}
+          maxLength={config.maxLength}
+        />
+      );
+    case 'select': {
+      const opts = config.options ?? [];
+      return (
+        <Select
+          name={field.name}
+          value={field.value ? String(field.value) : undefined}
+          onValueChange={(v) => field.onChange(v)}
+          disabled={disabled ?? config.disabled}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={config.placeholder ?? 'Select…'} />
+          </SelectTrigger>
+          <SelectContent>
+            {opts.map((o) => (
+              <SelectItem key={String(o.value)} value={String(o.value)} disabled={o.disabled}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+    case 'radio': {
+      const opts = config.options ?? [];
+      return (
+        <RadioGroup
+          name={field.name}
+          value={field.value ? String(field.value) : undefined}
+          onValueChange={(v) => field.onChange(v)}
+          disabled={disabled ?? config.disabled}
+        >
+          {opts.map((o) => (
+            <div key={String(o.value)} className="flex items-center gap-2">
+              <RadioGroupItem
+                id={`${field.name}-${o.value}`}
+                value={String(o.value)}
+                disabled={o.disabled}
+              />
+              <Label htmlFor={`${field.name}-${o.value}`}>{o.label}</Label>
+            </div>
+          ))}
+        </RadioGroup>
+      );
+    }
+    case 'checkbox':
+      return (
+        <Checkbox
+          name={field.name}
+          checked={!!field.value}
+          onCheckedChange={(v) => field.onChange(v === true)}
+          disabled={disabled ?? config.disabled}
+        />
+      );
+    case 'switch':
+      return (
+        <Switch
+          name={field.name}
+          checked={!!field.value}
+          onCheckedChange={(v) => field.onChange(v)}
+          disabled={disabled ?? config.disabled}
+        />
+      );
+    case 'file':
+      return (
+        <FileUpload
+          name={field.name}
+          value={field.value as File | File[] | null | undefined}
+          onChange={(files) => field.onChange(files)}
+          accept={config.accept}
+          multiple={config.multiple}
+          maxSize={config.maxSize}
+          maxFiles={config.maxFiles}
+          disabled={disabled ?? config.disabled}
+        />
+      );
+    case 'stars':
+      return (
+        <StarRating
+          value={(field.value as number | undefined) ?? 0}
+          onChange={(v) => field.onChange(v)}
+          max={config.maxStars ?? 5}
+          disabled={disabled ?? config.disabled}
+        />
+      );
+    case 'date':
+    case 'datetime-local':
+    case 'time':
+      return (
+        <Input
+          {...sharedInputProps}
+          type={type}
+          value={dateToInputValue(field.value)}
+          onChange={(e) => {
+            const v = e.target.value;
+            field.onChange(type === 'date' && v ? new Date(v) : v);
+          }}
+        />
+      );
+    default:
+      return (
+        <Input
+          {...sharedInputProps}
+          type="text"
+          value={(field.value as string | undefined) ?? ''}
+          onChange={(e) => field.onChange(e.target.value)}
+        />
+      );
+  }
+};
+
 /**
- * Main form component that generates forms from Zod schemas
- *
- * @description
- * Automatically generates type-safe forms from Zod schemas with built-in validation,
- * theming, and field type detection. Integrates with React Hook Form for optimal performance.
- *
- * @example
- * ```tsx
- * const userSchema = z.object({
- *   name: z.string().min(2),
- *   email: z.string().email(),
- *   age: z.number().min(18),
- * });
- *
- * <ZodForm
- *   schema={userSchema}
- *   onSubmit={(data) => console.log(data)}
- *   theme="dark"
- *   layout="vertical"
- * />
- * ```
- *
- * @param props - Configuration and options for the form
- * @returns React form component
+ * Schema-driven form renderer. Pass a Zod schema and an onSubmit handler;
+ * field types are inferred from the schema. Override per-field rendering via
+ * `fieldOptions` (e.g. `{ rating: { type: 'stars', maxStars: 10 } }`).
  */
 export function ZodForm<T extends z.ZodTypeAny>({
   schema,
@@ -63,7 +254,7 @@ export function ZodForm<T extends z.ZodTypeAny>({
   onSubmit,
   onError,
   onChange,
-  theme = 'dark',
+  theme = 'light',
   layout = 'vertical',
   fieldOptions = {},
   submitButtonText = 'Submit',
@@ -74,13 +265,11 @@ export function ZodForm<T extends z.ZodTypeAny>({
   disabled = false,
   defaultValues,
   mode = 'onChange',
-  ...restProps
 }: ZodFormProps<T>) {
-  // Initialize form
   const form = useZodForm({
     schema,
     onSubmit,
-    onError,
+    onError: onError as ((errors: unknown) => void) | undefined,
     defaultValues,
     mode,
   });
@@ -89,296 +278,191 @@ export function ZodForm<T extends z.ZodTypeAny>({
     control,
     handleSubmit,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { isSubmitting },
     fields,
-    submitForm,
     resetForm,
   } = form;
 
-  // Watch all form values for conditional logic
-  const formValues = watch();
-
-  // Determine visible fields based on conditional logic
+  const formValues = watch() as Record<string, unknown>;
   const visibleFields = useConditionalFields(fields, formValues);
 
-  // Handle form change events
   React.useEffect(() => {
-    if (onChange) {
-      onChange(formValues);
-    }
+    if (onChange) onChange(formValues);
   }, [formValues, onChange]);
 
-  // Theme classes
-  const themeConfig = getThemeClasses(theme);
-
   const formClasses = cn(
-    'zf-form',
-    themeClasses.form,
-    themeConfig.root,
-    layout === 'horizontal' && 'space-y-0 grid grid-cols-2 gap-6',
-    layout === 'grid' && 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6',
-    className
+    'space-y-6',
+    layout === 'horizontal' && 'grid grid-cols-2 gap-6 space-y-0',
+    layout === 'grid' && 'grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 space-y-0',
+    className,
   );
 
-  // Render individual field
-  const renderField = (name: string, fieldAnalysis: (typeof fields)[string]) => {
-    if (!visibleFields[name]) return null;
+  const renderArray = (name: string, config: FieldConfig) => (
+    <ArrayFieldAdapter
+      name={name}
+      config={config}
+      form={form as unknown as UseFormReturn<FormValues>}
+      disabled={disabled || loading}
+    />
+  );
 
-    const fieldConfig = { ...fieldAnalysis.config, ...fieldOptions[name] };
-    const fieldError = (errors as any)[name];
-    const isFieldDisabled = disabled || fieldConfig.disabled || loading;
-    const isFieldReadOnly = fieldConfig.readOnly;
-
-    const fieldProps = {
-      name,
-      label: fieldConfig.label || name,
-      placeholder: fieldConfig.placeholder,
-      description: fieldConfig.description,
-      error: fieldError,
-      disabled: isFieldDisabled,
-      readOnly: isFieldReadOnly,
-      required: fieldConfig.required,
-      className: fieldConfig.className,
-    };
-
-    const containerClasses = cn(themeClasses.fieldContainer, fieldConfig.containerClassName);
-
+  const renderObject = (name: string, config: FieldConfig) => {
+    const objShape = getObjectShape(schema)[name];
+    const nested = objShape ? getObjectShape(objShape) : {};
     return (
-      <div key={name} className={containerClasses}>
-        <Controller
-          name={name as Path<FormData<T>>}
-          control={control}
-          render={({ field, fieldState }) => {
-            const componentProps = {
-              ...fieldProps,
-              ...field,
-              error: fieldState.error,
-            };
-
-            return (
-              <>
-                {renderFieldComponent(fieldAnalysis.type, componentProps, fieldConfig)}
-                {fieldProps.description && <Description>{fieldProps.description}</Description>}
-                <ErrorMessage error={fieldState.error} />
-              </>
-            );
-          }}
-        />
-      </div>
-    );
-  };
-
-  // Render field component based on type
-  const renderFieldComponent = (type: FieldType, props: any, config: any) => {
-    switch (type) {
-      case 'text':
-      case 'email':
-      case 'password':
-      case 'url':
-      case 'tel':
-        return <Input {...props} type={type} />;
-
-      case 'number':
-        return (
-          <Input {...props} type="number" min={config.min} max={config.max} step={config.step} />
-        );
-
-      case 'range':
-        return (
-          <div className="space-y-2">
-            <Input {...props} type="range" min={config.min} max={config.max} step={config.step} />
-            <div className="text-xs text-zf-text-muted text-center">
-              {props.value || config.min || 0}
-            </div>
-          </div>
-        );
-
-      case 'textarea':
-        return (
-          <Textarea
-            {...props}
-            rows={config.rows || 3}
-            autoResize={config.autoResize}
-            documentUpload={config.documentUpload}
-          />
-        );
-
-      case 'select':
-        return (
-          <Select
-            {...props}
-            options={config.options || []}
-            searchable={config.searchable}
-            emptyOption={config.emptyOption}
-          />
-        );
-
-      case 'radio':
-        return (
-          <div className="space-y-2">
-            {props.label && <Label>{props.label}</Label>}
-            <RadioGroup
-              {...props}
-              options={config.options || []}
-              orientation={config.orientation}
-            />
-          </div>
-        );
-
-      case 'checkbox':
-        return (
-          <div className="flex items-center space-x-2">
-            <Checkbox {...props} />
-            {props.label && <Label htmlFor={props.name}>{props.label}</Label>}
-          </div>
-        );
-
-      case 'switch':
-        return (
-          <div className="flex items-center justify-between">
-            {props.label && <Label>{props.label}</Label>}
-            <Switch {...props} />
-          </div>
-        );
-
-      case 'file':
-        return (
-          <FileUpload
-            {...props}
-            accept={config.accept}
-            multiple={config.multiple}
-            imagePreview={config.imagePreview}
-            documentUpload={config.documentUpload}
-            maxSize={config.maxSize}
-            maxFiles={config.maxFiles}
-          />
-        );
-
-      case 'stars':
-        return (
-          <div className="space-y-2">
-            {props.label && <Label>{props.label}</Label>}
-            <StarRating
-              {...props}
-              maxStars={config.maxStars || 5}
-              allowHalf={config.allowHalf}
-              showValue={config.showValue}
-            />
-          </div>
-        );
-
-      case 'date':
-      case 'datetime-local':
-      case 'time':
-        return <Input {...props} type={type} />;
-
-      case 'array':
-        return renderArrayField(props.name, config);
-
-      case 'object':
-        return renderObjectField(props.name, config);
-
-      default:
-        return <Input {...props} type="text" />;
-    }
-  };
-
-  // Render array field
-  const renderArrayField = (name: string, config: any) => {
-    const arrayField = useArrayField(name, form);
-    const fieldError = (errors as any)[name];
-
-    return (
-      <ArrayField
-        name={name}
-        label={config.label || name}
-        description={config.description}
-        error={fieldError}
-        items={arrayField.items}
-        onAdd={() => arrayField.append({})}
-        onRemove={arrayField.remove}
-        onMove={arrayField.move}
-        renderItem={(_item, index) => (
-          <div key={`${name}.${index}`}>
-            {/* Render nested fields based on array item schema */}
-            <Input name={`${name}.${index}`} placeholder={`Item ${index + 1}`} className="w-full" />
-          </div>
-        )}
-        addButtonText={config.addButtonText}
-        removeButtonText={config.removeButtonText}
-        minItems={config.minItems}
-        maxItems={config.maxItems}
-        sortable={config.sortable}
-        disabled={disabled || loading}
-      />
-    );
-  };
-
-  // Render object field
-  const renderObjectField = (name: string, config: any) => {
-    const fieldError = (errors as any)[name];
-
-    return (
-      <ObjectField
-        name={name}
-        label={config.label || name}
-        description={config.description}
-        error={fieldError}
-        collapsible={config.collapsible}
-        defaultExpanded={config.defaultExpanded}
-        showBorder={config.showBorder}
-      >
-        {/* Render nested object fields */}
-        <div className="space-y-4">
-          {Object.entries(config.fields || {}).map(([fieldName, fieldConfig]: [string, any]) => (
-            <div key={fieldName} className="space-y-2">
-              <Label>{fieldConfig?.label || fieldName}</Label>
-              <Input
-                name={`${name}.${fieldName}`}
-                placeholder={fieldConfig?.placeholder}
-                disabled={disabled || loading}
+      <ObjectField name={name} label={config.label || name} description={config.description}>
+        {Object.entries(nested).map(([nestedKey]) => (
+          <FormItem key={nestedKey}>
+            <FormLabel>{nestedKey}</FormLabel>
+            <FormControl>
+              <Controller
+                name={`${name}.${nestedKey}`}
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    value={(field.value as string | undefined) ?? ''}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    disabled={disabled || loading}
+                  />
+                )}
               />
-            </div>
-          ))}
-        </div>
+            </FormControl>
+          </FormItem>
+        ))}
       </ObjectField>
     );
   };
 
   return (
-    <div className={themeConfig.root}>
-      <form className={formClasses} onSubmit={handleSubmit(submitForm)}>
-        {/* Render all fields */}
-        {Object.entries(fields).map(([name, fieldAnalysis]) => renderField(name, fieldAnalysis))}
+    <FormProvider {...(form as unknown as UseFormReturn<FieldValues>)}>
+      <div className={cn(theme === 'dark' && 'dark', 'text-foreground')}>
+        <form
+          className={formClasses}
+          onSubmit={handleSubmit(
+            async (data) => {
+              try {
+                await onSubmit(data as FormData<T>);
+              } catch (err) {
+                onError?.(err as never);
+              }
+            },
+            (errors) => onError?.(errors as never),
+          )}
+        >
+          {Object.entries(fields).map(([name, analysis]) => {
+            if (!visibleFields[name]) return null;
+            const userOpts = fieldOptions[name] ?? {};
+            const config: FieldConfig = { ...analysis.config, ...userOpts };
+            const resolvedType: FieldType =
+              (userOpts.type as FieldType | undefined) ?? analysis.type;
 
-        {/* Custom children */}
-        {children}
+            if (resolvedType === 'array') return <div key={name}>{renderArray(name, config)}</div>;
+            if (resolvedType === 'object')
+              return <div key={name}>{renderObject(name, config)}</div>;
 
-        {/* Form actions */}
-        {(showSubmitButton || showResetButton) && (
-          <div className="flex items-center justify-end space-x-3 pt-6 border-t border-zf-border">
-            {showResetButton && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetForm}
-                disabled={isSubmitting || loading}
-              >
-                {resetButtonText}
-              </Button>
-            )}
+            return (
+              <Controller
+                key={name}
+                name={name}
+                control={control}
+                render={({ field, fieldState }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {config.label ?? name}
+                      {analysis.required && <span className="ml-0.5 text-destructive">*</span>}
+                    </FormLabel>
+                    <FormControl>
+                      {renderForType(resolvedType, {
+                        name,
+                        config,
+                        field: field as ControllerRenderProps<FieldValues, string>,
+                        disabled: disabled || loading,
+                      })}
+                    </FormControl>
+                    {config.description && <FormDescription>{config.description}</FormDescription>}
+                    {fieldState.error?.message && (
+                      <p role="alert" className="text-sm font-medium text-destructive">
+                        {fieldState.error.message}
+                      </p>
+                    )}
+                  </FormItem>
+                )}
+              />
+            );
+          })}
 
-            {showSubmitButton && (
-              <Button type="submit" loading={isSubmitting || loading} disabled={disabled}>
-                {submitButtonText}
-              </Button>
-            )}
-          </div>
-        )}
-      </form>
-    </div>
+          {children}
+
+          {(showSubmitButton || showResetButton) && (
+            <div className="flex items-center justify-end gap-3 pt-2">
+              {showResetButton && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetForm}
+                  disabled={isSubmitting || loading}
+                >
+                  {resetButtonText}
+                </Button>
+              )}
+              {showSubmitButton && (
+                <Button type="submit" disabled={disabled || isSubmitting || loading}>
+                  {submitButtonText}
+                </Button>
+              )}
+            </div>
+          )}
+        </form>
+        {/* Defensive aria-hidden region for screen reader summary of form errors. */}
+        <ErrorSummary errors={form.formState.errors as FieldErrors<Record<string, unknown>>} />
+      </div>
+    </FormProvider>
   );
 }
 
-// Export default
+interface ArrayFieldAdapterProps {
+  name: string;
+  config: FieldConfig;
+  form: UseFormReturn<FormValues>;
+  disabled?: boolean;
+}
+
+function ArrayFieldAdapter({ name, config, form, disabled }: ArrayFieldAdapterProps) {
+  const array = useArrayField(name, form);
+  return (
+    <ArrayField
+      name={name}
+      label={config.label ?? name}
+      description={config.description}
+      items={array.items}
+      onAdd={() => array.append({})}
+      onRemove={array.remove}
+      onMove={array.move}
+      renderItem={(_item, index) => (
+        <Input
+          name={`${name}.${index}`}
+          placeholder={config.placeholder ?? `Item ${index + 1}`}
+          disabled={disabled}
+        />
+      )}
+      addButtonText={config.addButtonText}
+      removeButtonText={config.removeButtonText}
+      minItems={config.minItems}
+      maxItems={config.maxItems}
+      disabled={disabled}
+    />
+  );
+}
+
+function ErrorSummary({ errors }: { errors: FieldErrors<Record<string, unknown>> }) {
+  const count = Object.keys(errors).length;
+  if (!count) return null;
+  return (
+    <p className="sr-only" aria-live="polite">
+      {count} field error{count === 1 ? '' : 's'}
+    </p>
+  );
+}
+
 export default ZodForm;

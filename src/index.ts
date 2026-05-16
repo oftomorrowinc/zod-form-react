@@ -1,33 +1,28 @@
-// Main exports
-export { ZodForm as default, ZodForm } from './components/ZodForm';
-export { SimpleZodForm } from './components/SimpleZodForm';
+// Main entry point — storage-free renderer. No Firebase imports below this line.
+//
+// CSS is NOT imported here. Consumers who want our default styling do:
+//   import '@oftomorrow/zod-form/styles.css';
 
-// Hooks
-export { useZodForm, useConditionalFields, useArrayField } from './hooks/useZodForm';
+export { ZodForm, type ZodFormProps } from './components/ZodForm';
+export { default } from './components/ZodForm';
 
-// UI Components
+export { useArrayField, useConditionalFields, useZodForm } from './hooks/useZodForm';
+
 export * from './components/ui';
-
-// Field Components
 export * from './components/fields';
 
-// Types
 export * from './types';
 
-// Utilities
 export {
-  parseSchema,
+  analyzeField,
   analyzeSchema,
-  generateDefaultValues,
-  validateWithSchema,
-  mapZodTypeToFieldType,
   extractValidationRules,
+  generateDefaultValues,
+  getObjectShape,
+  getZodTypeInfo,
+  mapZodTypeToFieldType,
+  parseSchema,
+  validateWithSchema,
 } from './utils/schema-parser';
 
-export { cn, themeClasses, getThemeClasses } from './utils/cn';
-
-// Firebase exports
-export * from './firebase';
-
-// CSS
-import './styles/globals.css';
+export { cn } from './utils/cn';

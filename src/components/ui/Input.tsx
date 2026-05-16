@@ -1,62 +1,23 @@
-import React from 'react';
-import { InputProps } from '../../types/components';
-import { cn, themeClasses } from '../../utils/cn';
+import * as React from 'react';
+import { cn } from '../../utils/cn';
 
-export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  (
-    { className, error, leftIcon, rightIcon, leftAddon, rightAddon, disabled, readOnly, ...props },
-    ref
-  ) => {
-    const hasError = !!error;
-    const hasLeftAddon = !!leftIcon || !!leftAddon;
-    const hasRightAddon = !!rightIcon || !!rightAddon;
+export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
-    const inputClasses = cn(
-      themeClasses.input.base,
-      hasError && themeClasses.input.error,
-      disabled && themeClasses.input.disabled,
-      readOnly && themeClasses.input.readOnly,
-      hasLeftAddon && 'pl-10',
-      hasRightAddon && 'pr-10',
-      className
-    );
-
-    if (hasLeftAddon || hasRightAddon) {
-      return (
-        <div className="relative">
-          {hasLeftAddon && (
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              {leftIcon || leftAddon}
-            </div>
-          )}
-
-          <input
-            ref={ref}
-            className={inputClasses}
-            disabled={disabled}
-            readOnly={readOnly}
-            {...props}
-          />
-
-          {hasRightAddon && (
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              {rightIcon || rightAddon}
-            </div>
-          )}
-        </div>
-      );
-    }
-
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => {
     return (
       <input
+        type={type}
+        className={cn(
+          'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+          className,
+        )}
         ref={ref}
-        className={inputClasses}
-        disabled={disabled}
-        readOnly={readOnly}
         {...props}
       />
     );
-  }
+  },
 );
-
 Input.displayName = 'Input';
+
+export { Input };

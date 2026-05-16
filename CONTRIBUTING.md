@@ -57,6 +57,7 @@ npm run demo
 ## Making Changes
 
 1. **Create a Branch**: Create a feature branch from `main`
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -95,6 +96,7 @@ npm test -- src/utils/schema-parser.test.ts
 - Mock Firebase services when testing Firebase features
 
 Example test structure:
+
 ```typescript
 describe('ComponentName', () => {
   it('should render without errors', () => {
@@ -110,12 +112,14 @@ describe('ComponentName', () => {
 ## Submitting a Pull Request
 
 1. **Update Your Branch**: Rebase your branch on the latest main
+
    ```bash
    git fetch upstream
    git rebase upstream/main
    ```
 
 2. **Run All Checks**: Ensure everything passes
+
    ```bash
    npm run check
    npm test
@@ -123,6 +127,7 @@ describe('ComponentName', () => {
    ```
 
 3. **Push Your Changes**: Push to your fork
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -182,7 +187,7 @@ When reporting issues, please include:
 2. **Reproduction**: Steps to reproduce the behavior
 3. **Expected Behavior**: What you expected to happen
 4. **Actual Behavior**: What actually happened
-5. **Environment**: 
+5. **Environment**:
    - OS and version
    - Node version
    - Browser (if applicable)
