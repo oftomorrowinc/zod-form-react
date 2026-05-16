@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 — dual ESM + CJS output
+
+- **Dual-format publish.** The package now ships both ESM (`dist/index.js`) and CJS (`dist/index.cjs`) bundles for every entry point, matching the `@oftomorrow/effective` and `@oftomorrow/human-agent-chat` packaging conventions. Node 20 consumers using `require('@oftomorrow/zod-form')` and Vite/Next consumers using `import { ZodForm } from '@oftomorrow/zod-form'` both work without bundler shims.
+- **Nested exports conditions.** `package.json` exports use `import` and `require` blocks per entry with `types` declared inside each — ensuring `require()`-style consumers resolve to `dist/index.d.cts` (CJS-flavored declarations) and `import`-style consumers resolve to `dist/index.d.ts`. Same shape for the `/firebase` entry.
+- **Bundler swap: rollup → tsup.** `tsup.config.ts` mirrors effective's config shape, adapted to `platform: 'browser'` with React, Radix, firebase, and the other UI deps externalized. Drops `@rollup/plugin-*` and `rollup-plugin-postcss` from devDependencies. CSS is now built by a tiny `scripts/build-css.mjs` (postcss + tailwind) so tsup doesn't need to own a CSS pipeline.
+- **No more `__styles-noop.js` artifact.** The previous rollup config emitted a stub JS file alongside the CSS extract; tsup + the standalone CSS script removes the need for the cleanup hack.
+
 ## 1.0.0 — first public release
 
 This is the inaugural public release. The package was previously developed under the working name `zod-form-react` and is now shipped as `@oftomorrow/zod-form` on npm.

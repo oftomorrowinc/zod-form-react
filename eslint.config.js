@@ -50,5 +50,17 @@ export default tseslint.config(
     },
   },
 
+  // Build scripts run under Node, so declare node globals and relax the
+  // no-console rule (these are dev-time tools, not shipped code).
+  {
+    files: ['scripts/**/*.{js,mjs,cjs}', '*.config.{js,mjs,cjs}'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+    rules: {
+      'no-console': 'off',
+    },
+  },
+
   prettier,
 );
